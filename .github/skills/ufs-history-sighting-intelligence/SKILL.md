@@ -88,7 +88,7 @@ listing what the historical record could NOT confirm (attachments, exact codes, 
 disposition), so the team can chase the original owner.
 
 ### 5. Record the sighting & self-learn (memory grows over time)
-- **New issue:** create `issues/<ID>.md` from `_TEMPLATE.md`, then **regenerate its `index.jsonl` line** from the frontmatter.
+- **New issue:** create `issues/<ID>.md` from `_TEMPLATE.md`, then **regenerate the index** with `python build_index.py`.
 - **Known issue recurs** (a match was found): don't duplicate — append the new occurrence's ticket ID to the matched record's `linked_ids` and bump the pattern's **recurrence** note in `memory/curated-patterns.md` (which programs it's now been seen on). This is how the memory sharpens itself each time it's used.
 - **New class emerged:** add a new pattern to `memory/curated-patterns.md`.
 
@@ -113,7 +113,8 @@ disposition), so the team can chase the original owner.
   but **cannot retrieve or detect images, screenshots, pasted-as-picture tables, waveforms, or diagrams.**
   Flag this in §11 whenever a ticket likely contains such content.
 - **`index.jsonl` is derived, not authored.** The record frontmatter is the single source of truth;
-  regenerate the matching index line whenever a record is added or edited, so the agent never reads stale data.
+  regenerate the whole index by running **`python build_index.py`** whenever a record is added or edited,
+  so the agent never reads stale data. Never hand-edit `index.jsonl`.
 - **Self-learning is lightweight:** when a known pattern recurs, record the occurrence (add the ticket ID to
   `linked_ids`, update the pattern's recurrence/programs) rather than creating a duplicate record. Memory
   improves by accumulating real occurrences, not by adding machinery.

@@ -37,6 +37,9 @@ last_verified: <YYYY-MM-DD>             # freshness — when a human last checke
 ## 1. Identity & classification
 ## 2. Symptom (observable) + reproducibility profile
 ## 3. Initial triage — first discriminators
+> Also record **matching cues** so the next reader can classify a new issue against this one:
+> **Rule-in** (see X → it IS this), **Rule-out** (see Y → it is NOT this),
+> **Nearest look-alikes** (which tickets it resembles but differs from, and the deciding tell).
 ## 4. Reproduction recipe (config, images, IFWI, knobs, operating point)
 ## 5. Logs / instrumentation — RANKED (decisive / useful / noise)
 > For EVERY log capture both **WHEN** (the trigger/stage that tells you to grab it — e.g.
@@ -48,6 +51,8 @@ last_verified: <YYYY-MM-DD>             # freshness — when a human last checke
 ## 7. Root cause (precise mechanism + class)
 ## 8. Fix & verification (or workaround + status)
 ## 9. Retrospective (avoidable? prevention? detection gap?)
+> Include **dead-ends / false leads**: paths chased that turned out wrong, and the tell that ruled
+> each out — so the next debugger (and the agent) does not repeat the wasted work.
 ## 10. Cross-program linkage (all related ticket IDs + roles)
 ## 11. Gaps / unknowns — ask the debugger
 ## 12. Debug story (conversational narrative for first-time readers)
