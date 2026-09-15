@@ -35,14 +35,50 @@ don't know, look it up here first. `TODO(wiki)` = authoritative spec/wiki link t
 ## Key registers / signals
 - **`IS_` (Interrupt Status Register)** — UFSHCI status; the OS reads it to service requests.
   - **SBFES / HBFES** — fatal fabric-error status bits; set on OCP fabric timeout in this pattern.
+    (**"HBFES"** as written in sightings = the spec's **`HCFES`** — see decode below.)
 - **UECPA / UECDL / UECN / UECT** — UniPro error counter/status registers (PHY Adapter / Data Link /
   Network / Transport). Often **unreadable (read 0) under CATERROR**.
 - **PMC `ufsx2_pwr_sts` / `ufspw1_pwr_sts`** — UFS power-gating status; `0x1` = powered/not gated.
 
+### `IS_` Interrupt Status — detailed decode
+Source: `scc_ufs_top_registers_spec.pdf` (§1.2.3.7) + `MindShare_UFS_eLearning_vE1.pdf`.
+- **Register:** UFSHC `IS`, MMIO **offset `20h`**, 32-bit, default `0000_0000h`, access **RW/1C**
+  (write-1-to-clear). Spec: *"indicates pending interrupts that require service by the low-level
+  driver firmware."*
+- **Companion `IE` (Interrupt Enable), offset `24h`** — identical bit layout; an interrupt is raised
+  only when the `IS` status bit **and** its matching `IE` enable bit are both set.
+
+| Bit | Status (IS) | Enable (IE) | Meaning |
+|-----|-------------|-------------|---------|
+| 18 | CEFES | CEFEE | Crypto Engine Fatal Error Status |
+| **17** | **SBFES** | SBFEE | **System Bus Fatal Error Status** |
+| **16** | **HCFES** | HCFEE | **Host Controller Fatal Error Status** (sightings call this "HBFES") |
+| 12 | UTPES | UTPEE | UTP Error Status |
+| 11 | DFES | DFEE | Device Fatal Error Status |
+| 10 | UCCS | UCCE | UIC Command Completion Status |
+| 8 | ULSS | ULSSE | UIC Link Startup Status |
+| 0 | UTRCS | — | UTP Transfer Request Completion Status |
+
+- **SBFES — System Bus Fatal Error Status (bit 17).** Spec verbatim: *"Indicates that the DWC_ufshc
+  core encountered a system bus error that it cannot recover from (such as a bad software pointer).
+  When the error occurs, the DWC_ufshc core is stopped and both UTRRSR and UTMRRSR registers are
+  cleared to 0 by the core."* → An **OCP/Sonics fabric timeout is exactly this class** of unrecoverable
+  system-bus error.
+- **HCFES — Host Controller Fatal Error Status (bit 16).** Spec verbatim: *"Indicates that the
+  DWC_ufshc core encountered a fatal error that it cannot recover from. When the error occurs, the core
+  is stopped and both UTRRSR and UTMRRSR are cleared to 0. The host application must reset the DWC_ufshc
+  core."*
+- **Naming note:** neither the register spec nor the MindShare training defines an **"HBFES"** / "Host
+  Bus Fatal Error." IS bit 16 is **`HCFES` (Host Controller Fatal Error Status)**. Treat sighting
+  "HBFES" as **HCFES** unless a vendor doc proves otherwise.
+- **Why it means a hang:** any fatal bit (SBFES/HCFES/…) **stops the core** and clears the run-stop
+  registers (UTRLRSR/UTMRLRSR) → all queued transfers die → the OS's downstream `IS_` read never
+  completes and recovery needs a full controller reset (the >20s UFS bus reset → DPC watchdog).
+
 ## "Normal vs fault" quick reference
 | Thing | Healthy | Fault (this pattern) |
 |-------|---------|----------------------|
-| `IS_` | no fatal bits | **SBFES + HBFES set** |
+| `IS_` | no fatal bits | **SBFES (bit17) + HCFES (bit16) set** |
 | PSF trace | transactions complete | last `IS_` read / PSF4→UFS **stuck** |
 | MCA | no bank logged | **THREE_STRIKE** on core (e.g., CORE2 MLC) |
 | Power entry | UFS gets resources in time | fabric times out during deep PKGC entry |

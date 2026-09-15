@@ -49,6 +49,10 @@ last_verified: <YYYY-MM-DD>             # freshness — when a human last checke
 > Paste any parameter/sweep tables VERBATIM (with the result column) as a `6b` sub-section — do not
 > summarize them away. Tables are decisive boundary data.
 ## 7. Root cause (precise mechanism + class)
+### 7b. Fingerprint registers (high level)
+> Name only the decisive register/bits (from `key_registers`) and what they mean for THIS failure —
+> one or two lines. Put the full bit-level decode (offset, width, access, enable bits, spec-verbatim
+> text) in `reference/ufs-glossary.md` and link it here. Do not duplicate the full decode per record.
 ## 8. Fix & verification (or workaround + status)
 ## 9. Retrospective (avoidable? prevention? detection gap?)
 > Include **dead-ends / false leads**: paths chased that turned out wrong, and the tell that ruled
