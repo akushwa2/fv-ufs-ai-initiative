@@ -1,0 +1,41 @@
+# ================================================================================
+# UFS log-set manifest — copy to  ufs-log-inbox/<case-id>/manifest.yaml  and fill in.
+# One folder per failure EVENT. Raw logs stay local (gitignored) — never committed.
+# The analysis ALWAYS starts from this issue context, never from a log in isolation.
+# ================================================================================
+
+case_id: <case-id>                 # e.g. 16027585017-bsod-pkgc  or  2026wwXX-ufs-hang
+sighting_id: "<HSD id or blank>"   # link to ufs-history-sighting-intelligence record (enables issue-referenced RCA)
+symptom: <one line: what fails, when>
+
+context:                           # capture context — feeds the issue background + repro
+  program: <e.g. WCL A0>
+  ifwi: <ifwi build>
+  bios: <bios build>
+  os_image: <image id>
+  ufs_device: <part>
+  captured: <YYYY-MM-DD>
+  notes: <anything relevant: knobs, config, what was being done>
+
+logs:                              # one entry per collected log; `type` must be a known log_type (logs/index.jsonl)
+  - type: bsod-dump
+    path: bsod/MEMORY.DMP
+    tool: WinDbg
+    time_base: os-uptime
+    analyzer: <mcp | GAP-no-mcp>
+  - type: visa
+    path: visa/capture.csv
+    tool: VISA
+    time_base: visa-sample-clock
+    analyzer: GAP-no-mcp
+  # - type: bios-log      { path: bios/bioslog.txt,  tool: bioslog-analyzer, time_base: tsc }
+  # - type: fth-trace     { path: fth/fth.bin,       tool: <mcp>,           time_base: fth-cycle }
+  # - type: register-dump { path: regdump/regs.txt,  tool: ITP/PythonSV,    time_base: n/a, analyzer: GAP-no-mcp }
+
+time_anchors:                      # THE make-or-break: events visible in >=2 logs → clock alignment
+  - event: <e.g. PkgC10 entry>
+    seen_in: [bios-log, visa]
+  - event: <e.g. IS_ SBFES set>
+    seen_in: [register-dump, visa]
+
+goal: <what you want: root cause? confirm a hypothesis? compare vs a known sighting?>

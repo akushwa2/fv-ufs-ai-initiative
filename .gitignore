@@ -19,3 +19,8 @@ __pycache__/
 
 # Editor / tooling artifacts
 .vscode/
+
+# UFS log inbox — raw log-set case folders are local only (large/sensitive); keep README + template
+ufs-log-inbox/*
+!ufs-log-inbox/README.md
+!ufs-log-inbox/_MANIFEST_TEMPLATE.yaml
