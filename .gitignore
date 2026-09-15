@@ -10,6 +10,9 @@
 *.msg
 *.eml
 
+# Reference material / specs (provenance only, may not be shareable) — kept locally
+*.pdf
+
 # Python
 __pycache__/
 *.pyc
