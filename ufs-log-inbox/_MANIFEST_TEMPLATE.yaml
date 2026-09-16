@@ -1,7 +1,9 @@
 # ================================================================================
-# UFS log-set manifest — copy to  ufs-log-inbox/<case-id>/manifest.yaml  and fill in.
-# One folder per failure EVENT. Raw logs stay local (gitignored) — never committed.
-# The analysis ALWAYS starts from this issue context, never from a log in isolation.
+# UFS log-set manifest SCHEMA — the AGENT generates this as `manifest.generated.yaml`.
+# You (the user) do NOT write this. You only: drop logs in ufs-log-inbox/<case-folder>/
+# and say: "Analyze the UFS logs in ufs-log-inbox/<case-folder> for sighting <HSD id>."
+# The agent infers each log type, pulls issue context from the sighting record, derives
+# the time_anchors, and fills the fields below. Shown here so the generated output is transparent.
 # ================================================================================
 
 case_id: <case-id>                 # e.g. 16027585017-bsod-pkgc  or  2026wwXX-ufs-hang

@@ -1,7 +1,7 @@
-# Log Module — CSE/ESE Trace (UFS PHY)
+# Log Module — CSE/ESE Trace
 
 ```yaml
-log_type: cse-ese-phy
+log_type: cse-ese
 aka: [CSE trace, ESE trace, UFS PHY trace]
 captures_layers: [M-PHY]
 analyzer_mcp: <mcp?>       # an MCP exists for CSE/ESE analysis — confirm + wire

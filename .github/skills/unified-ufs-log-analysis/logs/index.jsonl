@@ -1,12 +1,9 @@
-{"log_type": "acpi-dump", "analyzer_mcp": "none", "mcp_status": "gap", "captures_layers": ["OS", "PMC"], "signature_count": 1, "module": "logs/acpi-dump.md"}
-{"log_type": "bios-log", "analyzer_mcp": "intel-sandbox/val_mcp_tools .ai/BDC_CVE/fv-pm/MCP/Bioslog_MCP_release_v0.3.1/bioslog-analyzer-v2-0.3.1.vsix", "mcp_status": "available", "captures_layers": ["BIOS", "PMC"], "signature_count": 0, "module": "logs/bios-log.md"}
+{"log_type": "bios-log", "analyzer_mcp": "intel-sandbox/val_mcp_tools .ai/BDC_CVE/fv-pm/MCP/Bioslog_MCP_release_v0.3.1/bioslog-analyzer-v2-0.3.1.vsix", "mcp_status": "available", "captures_layers": ["BIOS", "PMC", "OS"], "signature_count": 1, "module": "logs/bios-log.md"}
 {"log_type": "bsod-dump", "analyzer_mcp": "WinDbg (kd)", "mcp_status": "todo", "captures_layers": ["OS"], "signature_count": 1, "module": "logs/bsod-dump.md"}
 {"log_type": "crashlog", "analyzer_mcp": "<crashlog decoder>", "mcp_status": "todo", "captures_layers": ["PMC", "fabric"], "signature_count": 0, "module": "logs/crashlog.md"}
-{"log_type": "cse-ese-phy", "analyzer_mcp": "<mcp?>", "mcp_status": "todo", "captures_layers": ["M-PHY"], "signature_count": 0, "module": "logs/cse-ese-phy.md"}
+{"log_type": "cse-ese", "analyzer_mcp": "<mcp?>", "mcp_status": "todo", "captures_layers": ["M-PHY"], "signature_count": 0, "module": "logs/cse-ese.md"}
 {"log_type": "driver-etl", "analyzer_mcp": "<WPA / xperf>", "mcp_status": "todo", "captures_layers": ["OS"], "signature_count": 0, "module": "logs/driver-etl.md"}
 {"log_type": "fth-trace", "analyzer_mcp": "<mcp?>", "mcp_status": "todo", "captures_layers": ["fabric"], "signature_count": 1, "module": "logs/fth-trace.md"}
-{"log_type": "mca-pythonsv", "analyzer_mcp": "PythonSV (debug.mca.analyze)", "mcp_status": "todo", "captures_layers": ["HCI", "fabric", "PMC"], "signature_count": 1, "module": "logs/mca-pythonsv.md"}
-{"log_type": "pa-protocol-analyzer", "analyzer_mcp": "<vendor PA tool>", "mcp_status": "todo", "captures_layers": ["UniPro", "M-PHY"], "signature_count": 0, "module": "logs/pa-protocol-analyzer.md"}
 {"log_type": "register-dump", "analyzer_mcp": "none", "mcp_status": "gap", "captures_layers": ["HCI", "UniPro", "M-PHY", "PMC"], "signature_count": 2, "module": "logs/register-dump.md"}
 {"log_type": "solar", "analyzer_mcp": "Solar app", "mcp_status": "todo", "captures_layers": ["PMC"], "signature_count": 0, "module": "logs/solar.md"}
 {"log_type": "statusscope", "analyzer_mcp": "<axonsv>", "mcp_status": "todo", "captures_layers": ["fabric", "PMC"], "signature_count": 0, "module": "logs/statusscope.md"}

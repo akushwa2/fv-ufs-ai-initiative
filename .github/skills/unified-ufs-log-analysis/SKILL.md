@@ -32,15 +32,42 @@ Every Layer-1 output normalizes to:
 Correlation is impossible without a shared timeline → align clocks using **anchor events** present in
 ≥2 logs (e.g., `PkgC10 entry` in BIOS+VISA; `IS_ SBFES set` in regdump+VISA). Anchors come from the manifest.
 
-## Intake contract — where you put logs
-Drop collected logs in the **gitignored** working area, one folder per failure event, with a manifest:
+## Intake contract — minimal user input
+**The user does only two things: (1) drop logs in a folder, (2) give the sighting id.** No manifest authoring.
 ```
-ufs-log-inbox/<case-id>/
-  manifest.yaml            # issue context + per-log entries + time_anchors  (see _MANIFEST_TEMPLATE.yaml)
-  bsod/ MEMORY.DMP   visa/ capture.csv   fth/ ...   bios/ bioslog.txt   regdump/ ...
+ufs-log-inbox/<case-folder>/       # just the logs; typed subfolders optional
+  bsod/ MEMORY.DMP   visa/ capture.csv   bios/ bioslog.txt   regdump/ ...
 ```
-Then tell me the **case-id**. I read the manifest (issue context first), route each log to its analyzer,
-merge on anchors, and return ranked RCA. Raw logs stay local — never committed.
+**Invocation prompt the user uses:**
+> **“Analyze the UFS logs in `ufs-log-inbox/<case-folder>` for sighting `<HSD id>`.”**
+> (No sighting id? Give the symptom instead — the agent asks at most one clarifying question.)
+
+**The agent then auto-builds the manifest — the user never writes one:**
+1. Discover the files; **infer each log's `type`** from name/extension/folder (mapping below).
+2. Pull the **issue context + fingerprint** from the sighting record `issues/<id>.md`
+   (via `ufs-history-sighting-intelligence`) — symptom, config, expected registers/signals.
+3. Derive the cross-log **`time_anchors`** from that fingerprint + what the logs actually contain.
+4. Write `manifest.generated.yaml` in the case folder (transparency), then decode → merge → correlate
+   → ranked RCA. Raw logs stay local — never committed.
+
+### Log-type inference (folder / filename → log_type)
+| Hint | log_type |
+|------|----------|
+| `bsod/`, `*.dmp`, `MEMORY.DMP`, `*minidump*` | bsod-dump |
+| `visa/`, `visa*`, monitor-port `*.csv` | visa |
+| `bios/`, `bioslog*`, `serial*` | bios-log |
+| `fth/`, `fth*`, `psf*` | fth-trace |
+| `regdump/`, `reg*`, `*regs*`, ITP/PythonSV dumps | register-dump |
+| `acpi*` | bios-log (BIOS log includes ACPI/D0-D3) |
+| `cse*`, `ese*` | cse-ese |
+| `*.etl`, `etw*` | driver-etl |
+| `solar*` | solar |
+| `crashlog*` | crashlog |
+| unrecognized | agent asks once, or adds a new `logs/<name>.md` module |
+
+**Handled by external analyzers (no module here):**
+- **MCA / PythonSV logs** → the **PythonSV GPT Agent** decodes these; reference its output, don't build a module.
+- **Protocol Analyzer (PA)** → a **dedicated MCP** is being built; route PA captures there.
 
 ## Per-log modules (extensible registry)
 One module per log type under `logs/<name>.md`, all following `logs/_TEMPLATE.md`; `logs/index.jsonl`
