@@ -5,5 +5,6 @@
 {"log_type": "driver-etl", "analyzer_mcp": "<WPA / xperf>", "mcp_status": "todo", "captures_layers": ["OS"], "signature_count": 0, "module": "logs/driver-etl.md"}
 {"log_type": "fth-trace", "analyzer_mcp": "<mcp?>", "mcp_status": "todo", "captures_layers": ["fabric"], "signature_count": 1, "module": "logs/fth-trace.md"}
 {"log_type": "register-dump", "analyzer_mcp": "none", "mcp_status": "gap", "captures_layers": ["HCI", "UniPro", "M-PHY", "PMC"], "signature_count": 2, "module": "logs/register-dump.md"}
+{"log_type": "socwatch", "analyzer_mcp": "<socwatch analyzer>", "mcp_status": "todo", "captures_layers": ["PMC", "OS"], "signature_count": 0, "module": "logs/socwatch.md"}
 {"log_type": "solar", "analyzer_mcp": "Solar app", "mcp_status": "todo", "captures_layers": ["PMC"], "signature_count": 0, "module": "logs/solar.md"}
 {"log_type": "visa", "analyzer_mcp": "none", "mcp_status": "gap", "captures_layers": ["fabric", "PMC", "HCI"], "signature_count": 1, "module": "logs/visa.md"}

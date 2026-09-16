@@ -62,6 +62,7 @@ ufs-log-inbox/<case-folder>/       # just the logs; typed subfolders optional
 | `cse*`, `ese*` | cse-ese |
 | `*.etl`, `etw*` | driver-etl |
 | `solar*` | solar |
+| `socwatch*`, `soc_watch*`, `soc-watch*` | socwatch |
 | `crashlog*`, `statusscope*`, `axon*`, `axonsv*` | axon |
 | unrecognized | agent asks once, or adds a new `logs/<name>.md` module |
 
