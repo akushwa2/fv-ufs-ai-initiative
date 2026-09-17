@@ -79,6 +79,11 @@ ufs-log-inbox/<case-folder>/       # just the logs; typed subfolders optional
 - **MCA / PythonSV logs** → the **PythonSV GPT Agent** decodes these; reference its output, don't build a module.
 - **Protocol Analyzer (PA)** → a **dedicated MCP** is being built; route PA captures there.
 
+**Fetched, not dropped (DB-backed log types):**
+- **`axon`** is **queried live** via the `axon-server` MCP, not placed in the inbox. Input = an **AXON
+  record-viewer URL / failure UUID** *or* an **HSD sighting id** (→ `get_status_scope_insights_for_sighting`,
+  a direct bridge from a sighting record to its real AXON failures). See `knowledge/axon.md`.
+
 ## Per-log knowledge modules (extensible registry)
 One module per log type under **`knowledge/<name>.md`**, all following `knowledge/_TEMPLATE.md`;
 `knowledge/index.jsonl` is the registry (log_type, analyzer_mcp, mcp_status, signature_count).
