@@ -1,5 +1,5 @@
 {"log_type": "axon", "analyzer_mcp": "<axon / axonsv>", "mcp_status": "todo", "captures_layers": ["PMC", "fabric"], "signature_count": 0, "module": "logs/axon.md"}
-{"log_type": "bios-log", "analyzer_mcp": "intel-sandbox/val_mcp_tools .ai/BDC_CVE/fv-pm/MCP/Bioslog_MCP_release_v0.3.1/bioslog-analyzer-v2-0.3.1.vsix", "mcp_status": "available", "captures_layers": ["BIOS", "PMC", "OS"], "signature_count": 1, "module": "logs/bios-log.md"}
+{"log_type": "bios-log", "analyzer_mcp": "intel-sandbox/val_mcp_tools .ai/BDC_CVE/fv-pm/MCP/Bioslog_MCP_release_v0.3.1/bioslog-analyzer-v2-0.3.1.vsix", "mcp_status": "available", "captures_layers": ["BIOS", "PMC", "OS"], "signature_count": 3, "module": "logs/bios-log.md"}
 {"log_type": "bsod-dump", "analyzer_mcp": "WinDbg (kd)", "mcp_status": "todo", "captures_layers": ["OS"], "signature_count": 1, "module": "logs/bsod-dump.md"}
 {"log_type": "cse-ese", "analyzer_mcp": "<mcp?>", "mcp_status": "todo", "captures_layers": ["M-PHY"], "signature_count": 0, "module": "logs/cse-ese.md"}
 {"log_type": "driver-etl", "analyzer_mcp": "<WPA / xperf>", "mcp_status": "todo", "captures_layers": ["OS"], "signature_count": 0, "module": "logs/driver-etl.md"}
