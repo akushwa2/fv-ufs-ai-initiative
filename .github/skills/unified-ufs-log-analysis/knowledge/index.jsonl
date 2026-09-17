@@ -1,0 +1,10 @@
+{"log_type": "axon", "analyzer_mcp": "<axon / axonsv>", "mcp_status": "todo", "captures_layers": ["PMC", "fabric"], "signature_count": 0, "module": "knowledge/axon.md"}
+{"log_type": "bios-log", "analyzer_mcp": "intel-sandbox/val_mcp_tools .ai/BDC_CVE/fv-pm/MCP/Bioslog_MCP_release_v0.3.1/bioslog-analyzer-v2-0.3.1.vsix", "mcp_status": "available", "captures_layers": ["BIOS", "PMC", "OS"], "signature_count": 3, "module": "knowledge/bios-log.md"}
+{"log_type": "bsod-dump", "analyzer_mcp": "WinDbg (kd)", "mcp_status": "todo", "captures_layers": ["OS"], "signature_count": 1, "module": "knowledge/bsod-dump.md"}
+{"log_type": "cse-ese", "analyzer_mcp": "<mcp?>", "mcp_status": "todo", "captures_layers": ["M-PHY"], "signature_count": 0, "module": "knowledge/cse-ese.md"}
+{"log_type": "driver-etl", "analyzer_mcp": "<WPA / xperf>", "mcp_status": "todo", "captures_layers": ["OS"], "signature_count": 0, "module": "knowledge/driver-etl.md"}
+{"log_type": "fth-trace", "analyzer_mcp": "<mcp?>", "mcp_status": "todo", "captures_layers": ["fabric"], "signature_count": 1, "module": "knowledge/fth-trace.md"}
+{"log_type": "register-dump", "analyzer_mcp": "none", "mcp_status": "gap", "captures_layers": ["HCI", "UniPro", "M-PHY", "PMC"], "signature_count": 2, "module": "knowledge/register-dump.md"}
+{"log_type": "socwatch", "analyzer_mcp": "<socwatch analyzer>", "mcp_status": "todo", "captures_layers": ["PMC", "OS"], "signature_count": 0, "module": "knowledge/socwatch.md"}
+{"log_type": "solar", "analyzer_mcp": "Solar app", "mcp_status": "todo", "captures_layers": ["PMC"], "signature_count": 0, "module": "knowledge/solar.md"}
+{"log_type": "visa", "analyzer_mcp": "none", "mcp_status": "gap", "captures_layers": ["fabric", "PMC", "HCI"], "signature_count": 1, "module": "knowledge/visa.md"}

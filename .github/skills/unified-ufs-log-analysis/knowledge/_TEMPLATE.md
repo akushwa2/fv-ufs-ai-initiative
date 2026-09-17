@@ -1,11 +1,11 @@
 # Log Module — <Log name>
 
-> Copy to `logs/<log-name>.md`. Fill every section. `TODO(...)` = an honest gap for an SME — never guess.
+> Copy to `knowledge/<log-name>.md`. Fill every section. `TODO(...)` = an honest gap for an SME — never guess.
 > **Golden rule:** this module reads the log **against an issue**, never standalone. §8 is what makes it
 > smart over time — every real analysis adds an example with its issue background.
 
 ```yaml
-log_type: <canonical-name>            # controlled; must match manifest `type` + logs/index.jsonl
+log_type: <canonical-name>            # controlled; must match manifest `type` + knowledge/index.jsonl
 aka: [<other names>]
 captures_layers: [<HCI|UniPro|M-PHY|fabric|PMC|OS|BIOS>]
 analyzer_mcp: <mcp name / url / none>  # the Layer-1 decoder

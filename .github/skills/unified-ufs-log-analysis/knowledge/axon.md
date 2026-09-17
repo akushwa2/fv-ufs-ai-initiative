@@ -18,7 +18,7 @@ Umbrella for **Axon-based captures** — two flavors:
   HSD `debug_tools`). `TODO(owner): confirm exact scope/source.`
 - **StatusScope** — Axon **record-viewer** (`axonsv`) signal captures.
 > Note: an earlier waveform attributed to StatusScope in sighting 16027585017 was corrected — that
-> evidence was actually a **VISA** capture (see `logs/visa.md`). No confirmed StatusScope use yet.
+> evidence was actually a **VISA** capture (see `knowledge/visa.md`). No confirmed StatusScope use yet.
 
 ## 2. Capture — WHEN / HOW / WHY
 - **WHEN:** crashlog at/after the failure; StatusScope when an Axon record capture is needed.

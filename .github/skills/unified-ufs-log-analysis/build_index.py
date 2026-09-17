@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate logs/index.jsonl from each logs/<name>.md module's YAML frontmatter.
+"""Regenerate knowledge/index.jsonl from each knowledge/<name>.md module's YAML frontmatter.
 
 The module frontmatter (first ```yaml ... ``` block) is the single source of truth.
 Run after adding or editing a log module:  python build_index.py
@@ -14,7 +14,7 @@ try:
 except ImportError:
     sys.exit("PyYAML required:  python -m pip install pyyaml")
 
-LOGS = pathlib.Path(__file__).parent / "logs"
+LOGS = pathlib.Path(__file__).parent / "knowledge"
 FIELDS = ["log_type", "analyzer_mcp", "mcp_status", "captures_layers", "signature_count"]
 YAML_BLOCK = re.compile(r"```yaml\s*\n(.*?)```", re.DOTALL)
 
@@ -33,7 +33,7 @@ def main() -> None:
             print(f"WARN: no log_type in {md.name}", file=sys.stderr)
             continue
         row = {k: fm.get(k) for k in FIELDS}
-        row["module"] = f"logs/{md.name}"
+        row["module"] = f"knowledge/{md.name}"
         rows.append(row)
 
     out = LOGS / "index.jsonl"

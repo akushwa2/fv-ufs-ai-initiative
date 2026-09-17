@@ -19,7 +19,7 @@ context:                           # capture context — feeds the issue backgro
   captured: <YYYY-MM-DD>
   notes: <anything relevant: knobs, config, what was being done>
 
-logs:                              # one entry per collected log; `type` must be a known log_type (logs/index.jsonl)
+logs:                              # one entry per collected log; `type` must be a known log_type (knowledge/index.jsonl)
   - type: bsod-dump
     path: bsod/MEMORY.DMP
     tool: WinDbg

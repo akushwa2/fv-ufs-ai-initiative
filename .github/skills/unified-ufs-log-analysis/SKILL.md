@@ -26,11 +26,20 @@ this skill.
 - Decoders never live in the skill (no LLM hand-parsing of binaries); RCA judgment never lives in an MCP.
 - **Gaps today (no MCP):** VISA, register-dump → analyzed skill-guided (glossary + register spec) until built.
 
-## Common event schema (make-or-break)
-Every Layer-1 output normalizes to:
-`{ source, ts, ts_base, layer(HCI|UniPro|M-PHY|fabric|PMC|OS|BIOS), type, severity, raw, decoded }`
-Correlation is impossible without a shared timeline → align clocks using **anchor events** present in
-≥2 logs (e.g., `PkgC10 entry` in BIOS+VISA; `IS_ SBFES set` in regdump+VISA). Anchors come from the manifest.
+> **Current operating mode (be honest):** most Layer-1 MCPs and the Layer-2 merge MCP are **not wired yet**
+> — today the skill runs in **skill-guided manual mode**: the agent reads each log (image/text) directly,
+> normalizes by hand to the event schema, and correlates by reasoning. Per-module `mcp_status`/`schema_ready`
+> tell you what's real. As MCPs land, they slot into Layer 1/2 without changing Layer 3.
+
+## Common event schema + correlation artifacts
+The cross-log "brains" live in **`correlation/`** (not scattered across per-log modules):
+- **`correlation/event-schema.md`** — the concrete common event schema + example normalized instances.
+- **`correlation/anchor-catalog.md`** — the shared **time-sync anchors** that recur across logs (align ≥2 logs).
+- **`correlation/correlation-patterns.md`** — cross-log **signal chains** (e.g. the fabric-timeout chain).
+- **`correlation/worked-example.md`** — one end-to-end case fused on a single timeline → ranked RCA (the proof).
+
+Schema (summary): `{ source, ts, ts_base, layer(HCI|UniPro|M-PHY|fabric|PMC|OS|BIOS), type, severity, raw, decoded }`.
+Correlation is impossible without a shared timeline → align clocks on **anchor events** present in ≥2 logs.
 
 ## Intake contract — minimal user input
 **The user does only two things: (1) drop logs in a folder, (2) give the sighting id.** No manifest authoring.
@@ -64,24 +73,28 @@ ufs-log-inbox/<case-folder>/       # just the logs; typed subfolders optional
 | `solar*` | solar |
 | `socwatch*`, `soc_watch*`, `soc-watch*` | socwatch |
 | `crashlog*`, `statusscope*`, `axon*`, `axonsv*` | axon |
-| unrecognized | agent asks once, or adds a new `logs/<name>.md` module |
+| unrecognized | agent asks once, or adds a new `knowledge/<name>.md` module |
 
 **Handled by external analyzers (no module here):**
 - **MCA / PythonSV logs** → the **PythonSV GPT Agent** decodes these; reference its output, don't build a module.
 - **Protocol Analyzer (PA)** → a **dedicated MCP** is being built; route PA captures there.
 
-## Per-log modules (extensible registry)
-One module per log type under `logs/<name>.md`, all following `logs/_TEMPLATE.md`; `logs/index.jsonl`
-is the registry (log_type, analyzer_mcp, mcp_status, signature_count). **Adding a new log = add one
-module + one registry line. No restructure.** The log list is deliberately non-exhaustive.
+## Per-log knowledge modules (extensible registry)
+One module per log type under **`knowledge/<name>.md`**, all following `knowledge/_TEMPLATE.md`;
+`knowledge/index.jsonl` is the registry (log_type, analyzer_mcp, mcp_status, signature_count).
+**Adding a new log = add one module + one registry line. No restructure.** The log list is non-exhaustive.
+- **Create modules lazily** — add a `knowledge/<type>.md` when a log type is **first actually analyzed**
+  (or when you're about to feed it), not eagerly for every conceivable log. A stub with no content is debt.
 
 ## Correlation playbook (Layer 3)
 1. Read the manifest — anchor on the **issue** (symptom, config, sighting_id).
 2. If `sighting_id` known → pull its record fingerprint from `ufs-history-sighting-intelligence`.
-3. Route each log → its `logs/<type>.md` analyzer (MCP or skill-guided); normalize to the event schema.
-4. Merge on `time_anchors` → one timeline.
-5. Match against each module's **Known signatures** + the sighting fingerprint.
+3. Route each log → its `knowledge/<type>.md` analyzer (MCP or skill-guided); normalize to the event schema.
+4. Merge on `time_anchors` (see `correlation/anchor-catalog.md`) → one timeline.
+5. Match against each module's **Known signatures**, the **`correlation/correlation-patterns.md`** chains, and
+   the sighting fingerprint.
 6. Return **ranked hypotheses**, each with the cross-log evidence chain + confidence + citations.
+   (See `correlation/worked-example.md` for the reference output.)
 
 ## Learning loop — new failure signatures
 - **Per-log signature** (pattern in one log) → append to that module's **Known signatures** table
@@ -90,14 +103,14 @@ module + one registry line. No restructure.** The log list is deliberately non-e
 - Tag confidence; track recurrence. This is how the skill evolves every analysis.
 
 ## Feedback loop — with the sighting skill (bi-directional)
-- Whenever a **sighting analysis** meets a log, write a contribution into `logs/<type>.md`:
+- Whenever a **sighting analysis** meets a log, write a contribution into `knowledge/<type>.md`:
   a BKM, a Known-signature row, and an **Example-with-issue-background** entry. Requires the actual log content.
-- Links: sighting record §5 ↔ `logs/<type>.md` (Examples) — neither side can go stale without the other.
+- Links: sighting record §5 ↔ `knowledge/<type>.md` (Examples) — neither side can go stale without the other.
 
 ## Maintenance rules
-- **One module per log type** (`logs/`); new sightings add new log *types*, not duplicates.
+- **One module per log type** (`knowledge/`); new sightings add new log *types*, not duplicates. Create lazily.
 - Every module: Capture WHEN/HOW/WHY · Analyzer(MCP/GAP) · Schema mapping · Healthy-vs-Fault · **BKM** ·
   **Known signatures** · **Examples-with-issue-background**.
 - Unknown procedures = **`TODO(wiki)`/`TODO(owner)`** — never guess a command.
 - Keep tool commands **verbatim** once confirmed by someone who ran them.
-- `logs/index.jsonl` is derived from module frontmatter — regenerate, don't hand-edit.
+- `knowledge/index.jsonl` is derived from module frontmatter — regenerate with `build_index.py`, don't hand-edit.
