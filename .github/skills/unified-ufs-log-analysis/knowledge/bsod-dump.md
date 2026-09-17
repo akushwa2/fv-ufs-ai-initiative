@@ -4,9 +4,9 @@
 log_type: bsod-dump
 aka: [memory dump, minidump, MEMORY.DMP, WinDbg dump]
 captures_layers: [OS]
-analyzer_mcp: WinDbg (kd)     # MCP wrapper TODO
-mcp_status: todo              # WinDbg exists; a dump-analyzer MCP for UFS is not yet wired here
-schema_ready: no
+analyzer_mcp: "bsod-copilot (intel-sandbox/VE_FV_WG/bsod-copilot) — WinDbg PS toolkit + per-bugcheck guides"
+mcp_status: available        # NOT an MCP — a Copilot-agent WinDbg toolkit (Analyze-Dump.ps1 + BSOD-AutoAnalyzer-Guide)
+schema_ready: no             # bsod-copilot emits WinDbg text; we normalize to the event schema (§4)
 time_base: os-uptime
 provides_anchors: [bugcheck time, DPC watchdog fire, storufs reset entry]
 signature_count: 1
@@ -23,9 +23,19 @@ bugcheck code, stalled DPC). Complements the silicon view (VISA/register-dump) f
   `.frame`, `!error`.
 - **WHY:** gives the exact bugcheck code + the stalled driver path.
 
-## 3. Analyzer — MCP (todo) / WinDbg
-WinDbg/`kd` decodes the dump. `TODO(wiki): wire a BSOD-dump analyzer MCP that emits the bugcheck code,
-faulting stack, and DPC duration in the common event schema.` Until then, read `!analyze -v` output.
+## 3. Analyzer — bsod-copilot (WinDbg toolkit + per-bugcheck guides)
+**Analyzer = `intel-sandbox/VE_FV_WG/bsod-copilot`** (a Copilot-agent toolkit, **not** an MCP):
+- **Decode (Layer 1):** run `bsod-copilot/tools/Analyze-Dump.ps1 -DumpFile <MEMORY.DMP>` →
+  `output/analysis.log` (curated triage: `vertarget`, `.bugcheck`, `!analyze -v`, `!sysinfo smbios`,
+  `!cpuinfo`, `!prcb`, `!thread`, `kb 100`, `!irql`, `lm t n`, `!vm`). Follow-ups via
+  `tools/Invoke-KdCommand.ps1 -DumpFile <dmp> -Commands "<cmd>"`.
+- **Domain playbook:** pick the matching guide in `bsod-copilot/BSOD-AutoAnalyzer-Guide/` by bugcheck.
+  For THIS sighting's codes: **`BSOD0x133-guide.md` (DPC_WATCHDOG_VIOLATION)** and
+  **`BSOD0x101-guide.md` (CLOCK_WATCHDOG_TIMEOUT)** — both carry copy-paste WinDbg command sequences and
+  power/wait-chain triage (`!poaction`, `!powertriage`, `!running -it`, `!stacks 2`, `!timer`, `!whea`).
+- **Integration into our pipeline:** feed the `analysis.log` (bugcheck + faulting stack + DPC duration)
+  into §4 to emit the event-schema records; then correlate on the timeline (see `correlation/`).
+- Requires `kd.exe` (Windows SDK Debugging Tools) + symbol path; large dumps (16–64 GB) are slow first run.
 
 ## 4. Normalized output → common event schema
 - `ts` ← bugcheck/uptime; `ts_base: os-uptime`; `layer: OS`.
@@ -42,6 +52,10 @@ faulting stack, and DPC duration in the common event schema.` Until then, read `
 - Prefer **live KD** over post-mortem for this class — full dumps were unreliable.
 - Always capture/record the **exact bugcheck code** + attach the minidump to the sighting (a common gap).
 - If the dump was "shared with a team" (e.g. MTC) but not attached to HSD, flag it — the sighting must carry it.
+- **Route by bugcheck to the bsod-copilot guide:** `0x133`→DPC_WATCHDOG, `0x101`→CLOCK_WATCHDOG,
+  `0x124`→MCE, `0x9F`/`0x7A`→power/inpage. For UFS-storage hangs, run the guide's **power + wait-chain**
+  commands (`!poaction`, `!powertriage`, `!running -it`, `!stacks 2`, `!timer`) — they confirm the stalled
+  `storufs` reset DPC and its >20s duration.
 
 ## 7. Known signatures (learning loop)
 | Signature | Appearance in this log | Means | Confidence | Sighting IDs |
