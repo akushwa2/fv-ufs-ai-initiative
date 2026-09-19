@@ -31,11 +31,32 @@ don't know, look it up here first. `TODO(wiki)` = authoritative spec/wiki link t
 - **CATERROR** — catastrophic error signal / platform-fatal condition.
 - **DPC_WATCHDOG_VIOLATION** — Windows bugcheck when a DPC (deferred procedure call) runs too long
   (here: UFS bus reset >20s).
+- **PGCB (Power-Gate Control Block)** — the per-IP block that sequences power-gating, clock on/off and
+  reset around IP wake/sleep. Has its own state machine and clock (the PGCB clock).
+- **CDC (Clock-Domain Crossing)** — a signal passing between two unsynchronized clock domains. If an
+  edge (e.g. a reset release) is asynchronous to the receiving clock it can cause **metastability**.
+- **WARMRST** — warm-reset state of the PGCB state machine; exiting it forces the sideband-logic clock on.
+- **IOSF2OCP bridge** — the bridge translating IOSF-SB transactions to the UFS OCP domain; hosts a fuse
+  FSM that must complete the fuse pull before the controller can assert IP_ready.
+- **Fuse pull / fuse-puller** — the boot-time sequence that reads (pulls) IP fuses into registers. Its
+  FSM goes `fuse_pull_ready (001)` → `fuse_pull_done (006)`; stuck at `001` = pull never completed.
+- **IP_ready** — signal the UFS controller asserts (after power+clocks+no-fuse-errors+fuse-pull-done)
+  to tell PMC the IP is up. PMC waits on `ufs_ip_ready_status` at Phase-3 bootflow.
+- **fscan_mode** — a scan/test-mode qualifier used in the fuse-puller RTL state transition; a glitch on
+  it during the transition window can drop the fuse-pull request (leading theory for this bug).
+- **PC:0005 / `pmc_arc_pc`** — PMC ARC program counter; stuck value (`0xb0548` / `PC:0005`) = PMC looping
+  in Phase-3 bootflow waiting for IP_ready.
 
 ## Key registers / signals
 - **`IS_` (Interrupt Status Register)** — UFSHCI status; the OS reads it to service requests.
   - **SBFES / HBFES** — fatal fabric-error status bits; set on OCP fabric timeout in this pattern.
     (**"HBFES"** as written in sightings = the spec's **`HCFES`** — see decode below.)
+- **`ufs_ip_ready_status`** — PMC-visible bit that the UFS controller asserts when up; polled at Phase-3.
+  In `ufs-fusepull-cdc-race-on-boot` it never asserts because fuse-pull is stuck.
+- **`UFS_FUSE_REG1`** — UFS fuse register from which the UFS Device ID is derived; the PMC-FW WA writes
+  **`0x3800`** here so PMC can match the PCIe endpoint device-ID without a real fuse pull.
+- **fuse-pull FSM / IOSF2OCP bridge FSM** — in the bug: fuse-puller **Idle**, bridge stuck **"Fuse Pull
+  Request"**, fuse-pull stuck **`001`** (not `006`). `SB_PMA_FSM_STATE` = `SB_FSM_FUSE_PUSH_DONE`.
 - **UECPA / UECDL / UECN / UECT** — UniPro error counter/status registers (PHY Adapter / Data Link /
   Network / Transport). Often **unreadable (read 0) under CATERROR**.
 - **PMC `ufsx2_pwr_sts` / `ufspw1_pwr_sts`** — UFS power-gating status; `0x1` = powered/not gated.

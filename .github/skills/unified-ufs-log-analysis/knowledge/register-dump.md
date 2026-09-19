@@ -24,7 +24,8 @@ its value is the **state at the hang**, which anchors the other (time-series) lo
 
 ## 3. Analyzer — GAP (skill-guided decode)
 No MCP. Decode against `reference/ufs-glossary.md` → "`IS_` Interrupt Status — detailed decode"
-(sourced from the SCC UFS register spec + MindShare training). Key registers:
+(sourced from the SCC UFS register spec + MindShare training), and the **debug-usage angle** (when to
+read it, observed values) in **`knowledge/pythonsv.md`**. Key registers:
 - **`IS_` (offset 20h, RW/1C):** bit 17 **SBFES** (System Bus Fatal Error), bit 16 **HCFES** (Host
   Controller Fatal Error — sightings call it "HBFES"). Any fatal bit ⇒ core stops, run-stop regs cleared.
 - **`UECPA/UECDL/UECN/UECT`** (UniPro error): may read **0 / unreadable under CATERROR**.

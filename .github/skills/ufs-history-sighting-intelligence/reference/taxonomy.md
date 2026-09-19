@@ -42,6 +42,9 @@ mechanism matches — do NOT coin a near-duplicate.
 Existing signatures:
 - `ufs-fabric-timeout-on-pkgc` — OCP/Sonics fabric timeout during deep PKGC/S0ix entry because the
   UFS IP does not report LTR to PMC. (records: 16027585017)
+- `ufs-fusepull-cdc-race-on-boot` — boot-time PMC-stuck-at-Phase3 waiting for UFS IP_ready, because a
+  PGCB/CDC (clock-domain-crossing) race on IP-wake causes metastability that loses the IOSF2OCP-bridge
+  fuse-pull request (fuse-pull stuck `001`). (records: 16029205689)
 
 ## `confidence` (per fact/field or record-level)
 - `confirmed` — stated as fact in the ticket by the debug owner or a structured field.

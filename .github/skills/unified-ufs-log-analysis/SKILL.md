@@ -75,6 +75,11 @@ ufs-log-inbox/<case-folder>/       # just the logs; typed subfolders optional
 | `crashlog*`, `statusscope*`, `axon*`, `axonsv*` | axon |
 | unrecognized | agent asks once, or adds a new `knowledge/<name>.md` module |
 
+**`knowledge/pythonsv.md`** — a cross-cutting **register/command database** (not a log type; not in the
+registry). Every register/command accessed via PythonSV during a debug (host-controller `IS_`, PMC
+pwr_sts, PKGC counters, PMC ARC `pc_histo`, PGCB/fuse-pull FSMs, etc.) — what it means, when to read it,
+observed values — lives here. Link into it from any module or record instead of duplicating register detail.
+
 **Handled by external analyzers (no module here):**
 - **MCA / PythonSV logs** → the **PythonSV GPT Agent** decodes these; reference its output, don't build a module.
 - **Protocol Analyzer (PA)** → a **dedicated MCP** is being built; route PA captures there.
@@ -83,6 +88,9 @@ ufs-log-inbox/<case-folder>/       # just the logs; typed subfolders optional
 - **`axon`** is **queried live** via the `axon-server` MCP, not placed in the inbox. Input = an **AXON
   record-viewer URL / failure UUID** *or* an **HSD sighting id** (→ `get_status_scope_insights_for_sighting`,
   a direct bridge from a sighting record to its real AXON failures). See `knowledge/axon.md`.
+- **`statusscope`** is the deep-analysis layer on the same AXON data, via `statusscope-mcp`
+  (`analyze_failure`, `compare_records`, MCA/FSM decode). Also queried live, not dropped. See
+  `knowledge/statusscope.md`.
 
 ## Per-log knowledge modules (extensible registry)
 One module per log type under **`knowledge/<name>.md`**, all following `knowledge/_TEMPLATE.md`;

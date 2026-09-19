@@ -1,36 +1,38 @@
-# Log Module — Axon (crashlog + StatusScope, via axon-server MCP)
+# Log Module — Axon (raw failure DB access, via axon-server MCP)
 
 ```yaml
 log_type: axon
-aka: [Axon, axonsv, record-viewer, crashlog, crashdump, StatusScope, HW-errors]
+aka: [Axon, AXON DB, crashlog, crashdump, flexcon, content-report]
 captures_layers: [PMC, fabric, HCI, OS]
-analyzer_mcp: "axon-server (intel-sandbox/VE_FV_WG/mcp-servers/axon-server) + statusscope-mcp for deep analysis"
+analyzer_mcp: "axon-server (intel-sandbox/VE_FV_WG/mcp-servers/axon-server)"
 mcp_status: available
 schema_ready: no            # MCP returns AXON report JSON; we normalize to the event schema (§4)
 time_base: axon-record-ts
-provides_anchors: [error-record time, MCA/HW-error time, failure timestamp]
+provides_anchors: [error-record time, failure timestamp]
 signature_count: 0
 ```
 
 ## 1. Identity — what it captures & which UFS layers it sees
-The **AXON failure database** view of a failure — a *fetched* record (by UUID or via HSD sighting), not a
-dropped file. Content objects per record:
-- **StatusScope** (`intel-svtools-report-v1`) — structured HW failure insights (`HW.HANG`,
-  `HW.STUCK_TRANSACTION`, `HW.MCE.*`, `HW.CFG`) + MCA register data.
-- **Crashlog / HW-errors** (`intel-hw-errors-report-v1`, `intel-crashlog-v1`) — MCA/HW error summary + raw crashlog.
-- **Crashdump** (`intel-crashdump-v1`), **Flexcon** (`intel-flexcon-report-v1`), **Content** (`intel-content-report-v1`).
+**Raw AXON failure-database access** — fetch metadata, discover attached content, and pull report objects
+by failure UUID or HSD sighting id. This module = the **retrieval layer**. For the smart per-failure
+*analysis* (verdict, MCA decode, FSM hang detection, multi-record compare), see **`knowledge/statusscope.md`**
+— a separate MCP (`statusscope-mcp`) built on the same AXON data.
+Content objects reachable here: **crashlog** (`intel-hw-errors-report-v1`, `intel-crashlog-v1`),
+**crashdump** (`intel-crashdump-v1`), **flexcon** (`intel-flexcon-report-v1`), **content**
+(`intel-content-report-v1`), and the raw **StatusScope** report (`intel-svtools-report-v1`, best read via
+`statusscope.md`'s tools).
 > An earlier waveform attributed to StatusScope in sighting 16027585017 was corrected — that evidence was
-> actually a **VISA** capture (see `knowledge/visa.md`). StatusScope here = the AXON insight report, not a waveform.
+> actually a **VISA** capture (see `knowledge/visa.md`).
 
 ## 2. Capture — WHEN / HOW / WHY
 - **WHEN:** whenever the failure has an AXON record (post-si validation failures) or an HSD sighting with
   linked AXON records. This log type is **queried**, not dropped in the inbox.
 - **HOW (input):** provide an **AXON record-viewer URL / failure UUID** *or* an **HSD sighting id** — the
   agent calls the `axon-server` MCP (Kerberos/SSPI auth on Intel network). No manual token on-network.
-- **WHY:** pulls real, structured failure insights + MCA + crashlog straight from the failure DB, and
-  aggregates them across every failure linked to a sighting.
+- **WHY:** pulls real, structured failure content straight from the failure DB, and aggregates StatusScope
+  insights across every failure linked to a sighting.
 
-## 3. Analyzer — axon-server MCP (+ statusscope-mcp)
+## 3. Analyzer — axon-server MCP
 **`axon-server`** (FastMCP + `pyaxon`) — raw retrieval & sighting aggregation:
 | Tool | Use |
 |------|-----|
@@ -39,34 +41,25 @@ dropped file. Content objects per record:
 | `get_axon_report_content(failure_id, content_type)` | download a report (StatusScope / crashlog / crashdump …) |
 | `get_status_scope_insights_for_sighting(sighting, days=30)` | **aggregate StatusScope insights across ALL AXON records linked to an HSD sighting** (Snowflake) |
 
-**`statusscope-mcp`** (deeper analysis on top of the same AXON data) — use for the *smart* pass:
-`analyze_failure` (categorized insights + verdict + **MCA decode + FSM hang**), `compare_records`
-(2–10 records → SAME_BUG/RELATED/DIFFERENT), `generate_triage_report` (HTML).
-
 - **Setup:** add to `.vscode/mcp.json` (`command: python`, `args: [.../axon-server/server.py]`); deps
   `fastmcp`, `pyaxon`, `pysvtools.axon-mining-scripts` (from intelpypi). Defaults to **axon prod**.
-- **MCA note:** AXON carries MCA JSON (`intel-mca-json-v2`); our external rule still routes deep MCA decode
-  to the **PythonSV GPT Agent**, but StatusScope's MCA decode is a fast first look.
 
 ## 4. Normalized output → common event schema
-- `ts` ← AXON record/error timestamp (`_tsDate`); `ts_base: axon-record-ts`; `layer: PMC|fabric|HCI|OS` (by insight).
-- Events: `{type: "hw-hang"|"stuck-transaction"|"mca"|"cfg", severity, decoded: "<insight message>"}`,
-  `{type: "crashlog-record", ...}`.
-- **Anchors it provides:** failure timestamp, MCA/HW-error time — align with register-dump/bsod on the timeline.
+- `ts` ← AXON record/error timestamp (`_tsDate`); `ts_base: axon-record-ts`; `layer: PMC|fabric|HCI|OS` (by content).
+- Events: `{type: "crashlog-record"|"crashdump-record", severity, decoded: "<content summary>"}`.
+- **Anchors it provides:** failure timestamp — align with register-dump/bsod on the timeline.
 
 ## 5. Healthy vs failing reference
-- **Healthy:** no record, or record with only benign/`SW` insights.
-- **Fault:** `HW.HANG` / `HW.STUCK_TRANSACTION` / `HW.MCE.*` insights; a crashlog with MCA banks set;
-  affected-component mapping implicating the UFS/fabric/PMC path.
+- **Healthy:** no record, or record with only benign content.
+- **Fault:** crashlog with MCA banks set / crashdump present; content implicating the UFS/fabric/PMC path.
 
 ## 6. BKM (best-known methods)
 - **Bridge from a sighting:** start with `get_status_scope_insights_for_sighting(<our HSD id>)` — it pulls
   real AXON insights for every failure linked to the sighting we're analyzing (e.g. 16027585017), then drill
-  into a specific `failure_id` with `get_axon_report_content`.
+  into a specific `failure_id` with `get_axon_report_content`. For the deep verdict, hand the result to
+  **`statusscope.md`**'s `analyze_failure`.
 - Use `get_axon_content_types` **first** to see which reports exist before fetching.
-- For a fast verdict + MCA/FSM decode use `statusscope-mcp analyze_failure`; for raw content use `axon-server`.
 - Confirm `platform.tla` matches the program under debug (e.g. WCL) before trusting a record.
-- Don't mistake StatusScope (insight report) for a signal waveform — that's VISA.
 
 ## 7. Known signatures (learning loop)
 | Signature | Appearance in this log | Means | Confidence | Sighting IDs |
@@ -75,5 +68,4 @@ dropped file. Content objects per record:
 
 ## 8. Examples with issue background (feedback loop)
 - _(none yet.)_ **Next step for 16027585017:** run `get_status_scope_insights_for_sighting("16027585017")`
-  to see if AXON holds StatusScope/crashlog records for this sighting; if so, drill in and add a real
-  example + signatures here.
+  to see if AXON holds records for this sighting; if so, drill in and add a real example + signatures here.
