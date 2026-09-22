@@ -58,5 +58,5 @@ last_verified: <YYYY-MM-DD>             # freshness — when a human last checke
 > Include **dead-ends / false leads**: paths chased that turned out wrong, and the tell that ruled
 > each out — so the next debugger (and the agent) does not repeat the wasted work.
 ## 10. Cross-program linkage (all related ticket IDs + roles)
-## 11. Gaps / unknowns — ask the debugger
+## 11. Gaps / unknowns
 ## 12. Debug story (conversational narrative for first-time readers)
