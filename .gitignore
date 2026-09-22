@@ -12,6 +12,8 @@
 
 # Reference material / specs (provenance only, may not be shareable) — kept locally
 *.pdf
+*.pptx
+~$*.pptx
 
 # Python
 __pycache__/
