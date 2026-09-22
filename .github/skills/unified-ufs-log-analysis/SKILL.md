@@ -67,6 +67,7 @@ ufs-log-inbox/<case-folder>/       # just the logs; typed subfolders optional
 | `bios/`, `bioslog*`, `serial*` | bios-log |
 | `fth/`, `fth*`, `psf*` | fth-trace |
 | `regdump/`, `reg*`, `*regs*`, ITP/PythonSV dumps | register-dump |
+| `scandump*`, `*_scandump*`, `dfx_par*`, Nanoscope exports | scandump |
 | `acpi*` | bios-log (BIOS log includes ACPI/D0-D3) |
 | `cse*`, `ese*` | cse-ese |
 | `*.etl`, `etw*` | driver-etl |
@@ -75,10 +76,11 @@ ufs-log-inbox/<case-folder>/       # just the logs; typed subfolders optional
 | `crashlog*`, `statusscope*`, `axon*`, `axonsv*` | axon |
 | unrecognized | agent asks once, or adds a new `knowledge/<name>.md` module |
 
-**`knowledge/pythonsv.md`** — a cross-cutting **register/command database** (not a log type; not in the
-registry). Every register/command accessed via PythonSV during a debug (host-controller `IS_`, PMC
-pwr_sts, PKGC counters, PMC ARC `pc_histo`, PGCB/fuse-pull FSMs, etc.) — what it means, when to read it,
-observed values — lives here. Link into it from any module or record instead of duplicating register detail.
+**`knowledge/register-dump.md` (§3 command catalog)** — doubles as the cross-cutting **register/command
+database**. Every register/command accessed via PythonSV during a debug (host-controller `IS_`, PMC
+pwr_sts, PKGC counters, PMC ARC `pc_histo`, PGCB/fuse-pull FSMs, fuse-controller history, etc.) — what it
+means, when to read it, observed values — lives in its §3. Link into it from any module or record instead
+of duplicating register detail.
 
 **Handled by external analyzers (no module here):**
 - **MCA / PythonSV logs** → the **PythonSV GPT Agent** decodes these; reference its output, don't build a module.
