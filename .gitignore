@@ -26,3 +26,10 @@ __pycache__/
 ufs-log-inbox/*
 !ufs-log-inbox/README.md
 !ufs-log-inbox/_MANIFEST_TEMPLATE.yaml
+
+# Raw capture logs — local only, never committed
+/NVL Logs/
+
+# Raw .txt captures (register dumps, attribute lists, etc.) — local only; keep .txt inside skills
+*.txt
+!.github/skills/**/*.txt
