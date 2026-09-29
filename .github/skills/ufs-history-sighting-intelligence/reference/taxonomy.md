@@ -33,6 +33,7 @@ inline (that silently fragments search).
 - `marginality`
 - `tools`
 - `environment`
+- `spec-gap`          # device/vendor behavior differs from what the spec/OS flow expects (e.g. a UFS device's reaction to a standard command doesn't match the OS recovery flow's assumptions)
 - `unknown`
 
 ## `signature` (canonical bug-class tag)
@@ -45,6 +46,13 @@ Existing signatures:
 - `ufs-fusepull-cdc-race-on-boot` — boot-time PMC-stuck-at-Phase3 waiting for UFS IP_ready, because a
   PGCB/CDC (clock-domain-crossing) race on IP-wake causes metastability that loses the IOSF2OCP-bridge
   fuse-pull request (fuse-pull stuck `001`). (records: 16029205689)
+- `ufs-recovery-softhang-on-endpoint-reset` — after a SCSI READ unit-timeout (10s), the OS hierarchical/
+  endpoint-reset recovery **soft-hangs** because the UFS device's reaction to `DME_ENDPOINTRESET` differs
+  by vendor: a device that keeps the link **up** with `IS_` **clean** (`HCS.DP=1`) steers storufs onto a
+  path that never HCE-toggles / re-inits the link, so recovery spins the UTRLDBR/UTRLCLR loop and hangs
+  (a device that reports link-lost + `IS_.DFES` recovers). Distinct from `ufs-fabric-timeout-on-pkgc`:
+  repros with **PKGC disabled** and the lost transaction is **above PSF0** with no fabric error.
+  (records: 16029554884)
 
 ## `confidence` (per fact/field or record-level)
 - `confirmed` — stated as fact in the ticket by the debug owner or a structured field.

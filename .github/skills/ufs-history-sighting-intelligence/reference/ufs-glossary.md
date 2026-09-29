@@ -96,6 +96,27 @@ Source: `scc_ufs_top_registers_spec.pdf` (§1.2.3.7) + `MindShare_UFS_eLearning_
   registers (UTRLRSR/UTMRLRSR) → all queued transfers die → the OS's downstream `IS_` read never
   completes and recovery needs a full controller reset (the >20s UFS bus reset → DPC watchdog).
 
+### Recovery-path registers (`ufs-recovery-softhang-on-endpoint-reset`, 16029554884)
+Source: PythonSV `soc.ufs.scc_ufs_top.scs_dwc_ufshc_c0_mmio` `hcs.show()` / `is_.show()` + UFSHCI spec + FTH trace.
+- **`HCS` (Host Controller Status), MMIO offset `30h`.** Key field **`DP` (bit 0) = Device Present** —
+  `1` = a UFS device is present / link up; `0` = link lost. After `DME_ENDPOINTRESET`, **Samsung → DP=0**
+  (link lost), **SK hynix → DP=1** (link retained). `DP` is the branch that decides which OS recovery
+  path runs. Other fields: `UCRDY` (UIC Command Ready, 3), `UTMRLRDY` (2), `UTRLRDY` (1).
+- **`IS_.DFES` — Device Fatal Error Status (bit 11).** Set on the Samsung path after Endpoint Reset,
+  **clear** on the SK hynix path. Its presence/absence is what routes storufs onto the recovering
+  (HCE-toggle + link re-init) vs the hanging (no re-init) branch.
+- **`IS_.ULLS` — UIC Link Lost Status (bit 7).** Set when the link drops (Samsung path); distinct from
+  `ULSS` (UIC Link **Startup** Status, bit 8) already tabled above.
+- **`IS_.UDEPRI` — UIC `DME_ENDPOINTRESET` Indication (bit 1).** Flags that an Endpoint Reset occurred.
+- **`UTRLDBR` — UTP Transfer Request List Door Bell, MMIO offset `58h`.** The OS rings/polls this to
+  submit/track transfer requests; the failing recovery **spins polling `58h`**.
+- **`UTRLCLR` — UTP Transfer Request List CLeaR, MMIO offset `5Ch`.** Write-to-clear a request slot
+  (used to **abort** a pending transfer). In the FTH loop the OS writes `5Ch = 0xFDFFFFFF` (clearing
+  slot 0 / aborting) — the `0x5C` write the debug notes call the "Abort command."
+- **`UICCMD` — UIC Command register, MMIO offset `90h`** (args `UCMDARG1/2/3` at `94h/98h/9Ch`). During
+  recovery the FTH shows **`UICCMD = 0x39` (`DME_ENABLE`)**, which the DWC UFSHC **databook does not
+  permit** in this context — a protocol violation in the OS recovery flow.
+
 ## "Normal vs fault" quick reference
 | Thing | Healthy | Fault (this pattern) |
 |-------|---------|----------------------|

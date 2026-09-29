@@ -115,3 +115,59 @@ When a new sighting matches a pattern's **triggers/fingerprint**, apply its **fi
 **Open unknowns for this pattern**
 - `fscan_mode` glitch is the leading theory — not silicon-confirmed.
 - Vnn/VnnAon droop check result and final guard-band (RC2) validation not captured.
+
+---
+
+## Pattern P3 — UFS recovery soft-hang on vendor endpoint-reset mismatch
+**Source records:** 16029554884 (Issue#1 lost-READ tracked in a separate, not-yet-filed HSD)
+**Programs seen:** WCL-U (A1), Windows 25H2.
+**Recurrence:** 1 confirmed sighting (WCL). ← bump + add programs/IDs each time seen again.
+
+**Triggers**
+- HLK **Connected Standby IO Stress** (RapidFileVerify + ConnectedStandby + SCSICompliance, Driver Verifier on) with **UFS as primary** storage.
+- **Windows 25H2** (24H2 does NOT repro). **Gfx + Wifi drivers installed** (clean OS alone won't assert CS).
+- Failure during **S0ix entry/exit**, after a few successful recoveries.
+
+**Fingerprint (how to confirm it's this class)**
+- A **SCSI READ(06)** hits a **10 s unit-timeout** (`SRB.TimeOutValue = 0xa`, QueueTag 0x03); OS runs the hierarchical reset (`storufs!UfsResetBus → storport!RaidAdapterResetBus`).
+- **FTH:** good ops end (`DBR Cleared → All Cmds Served Successfully`), then `CHK_BAD : Loop Starts Here`, a **~10 s dead gap**, then a recovery loop **polling UTRLDBR (0x58)** and **writing UTRLCLR (0x5C = 0xFDFFFFFF)**; **later** a databook-**illegal `UICCMD 0x39 = DME_ENABLE`**.
+- **VISA @ PSF4/PSF0:** no transaction at UFS, none pending → the READ is **lost above PSF0** (D2D/compute).
+- **Register compare after `DME_ENDPOINTRESET`:** **failing device (SK hynix HN8T15DEHKX075)** = link up, **`HCS.DP=1`, `IS_` clean**; **recovering device (Samsung KLUEG8UHGC-B0E1)** = link lost, **`DP=0`, `IS_.DFES` + `ULLS` set**.
+- Bugchecks: `UNEXPECTED_STORE_EXCEPTION 0x154`, `KERNEL_DATA_INPAGE_ERROR 0x7A`; **no dumps** generated.
+
+**First moves (fastest discriminators)**
+1. Swap storage: **NVMe primary + UFS secondary** → if it vanishes, it's the UFS-primary recovery path.
+2. Check **24H2 vs 25H2** → 25H2-only points here (OS recovery-flow change).
+3. Force a dump with an **eng driver breakpoint at UFS reset** (live WinDbg **masks** it — Heisenbug).
+4. **Do NOT** rechase PHY eq / PGCB / gear / PKGC — all disproven (see rule-outs).
+
+**Log order + WHEN to capture (decisive first)**
+1. **Eng-driver breakpoint at UFS reset** to force a memdump (WinDbg-attached passes 3/3).
+2. **FTH + VISA @ PSF4/PSF0** synced to the dump across the 10 s window.
+3. **PMC trace + D2D-CFI trace** across the timeout (for Issue#1, the lost READ above PSF0).
+4. **PythonSV `hcs`/`is_`** register compare across the two vendor devices post-Endpoint-Reset.
+5. **Avoid as primary:** PA (auto-stops with errors); Event Viewer (empty post-crash).
+
+**Likely root cause**
+- **Issue#2 (root-caused):** vendor **spec-implementation gap** — SK hynix keeps the link up with `IS_` clean after `DME_ENDPOINTRESET`, so storufs takes a path that **never HCE-toggles / re-inits** the link → recovery spins → **soft hang**; Samsung reports link-lost + `IS_.DFES` → HCE-toggle path → recovers.
+- **Issue#1 (open):** a SCSI READ is **lost above PSF0** (D2D/compute) causing the unit-timeout that starts recovery. Root cause unknown; tracked separately.
+- **Class:** spec-gap (device-fw vs OS recovery flow); fix lands in the **OS driver**.
+
+**Known fix / workaround**
+- **MSFT private driver** that forces a **controller reset (HCE toggle) after `DME_ENDPOINTRESET` & `DME_RESET`** → soft hang no longer reproduces on **either** Samsung or SK hynix. Productization under MSFT discussion (interim subset possible; part of the "2x2" ask). ACPI-based variant discussed but not present on any platform today.
+
+**Prevention checklist (apply to new UFS bring-ups)**
+- Qualify each **UFS device's `DME_ENDPOINTRESET` behavior** (link-lost + `IS_.DFES` vs link-up + clean) against the OS recovery flow **before** device sign-off.
+- Ensure OS recovery **HCE-toggles regardless** of device error-status reporting.
+- Put **UFS-primary + Win25H2 + Gfx/Wifi + HLK CS IO-stress** concurrency in the default matrix.
+
+**Rule-out vs P1 (critical — don't confuse them)**
+- **P3 repros with PKGC DISABLED**; P1 (`ufs-fabric-timeout-on-pkgc`) is PKGC-gated.
+- P3 loses the transaction **above PSF0 with `IS_`/fabric clean**; P1 shows **`IS_` SBFES/HBFES OCP-fabric errors** with a stuck PSF4→UFS non-posted read.
+- Both share the platform surface (UFS-primary/S0ix) and the `storufs!UfsResetBus` OS path — the PKGC-disabled test + the `IS_`/PSF read are the deciders.
+
+**Open unknowns for this pattern**
+- Issue#1 root cause (where the SCSI READ is lost above PSF0) — unknown; CFI/D2D analysis pending.
+- The separate HSD ID for the unit-timeout — not yet filed.
+- Whether MSFT ships the full HCE-toggle change or an interim subset.
+- Why `DME_ENABLE` and the PMC user-data `0x15B0–0x15B5` writes appear in the recovery path.
