@@ -110,7 +110,7 @@ last_verified: <YYYY-MM-DD>             # freshness — when a human last checke
 > each out — so the next debugger (and the agent) does not repeat the wasted work.
 ## 10. Cross-program linkage (all related ticket IDs + roles)
 ## 11. Gaps / unknowns
-## 12. Debug story (conversational narrative for first-time readers)
+## 12. Debug story
 > The **human-readable layer** — narrative, rationale, red-herrings, the "aha". Same facts as §1–11,
 > re-shaped for a first-time reader. Keep it **accurate**: no stale claims or trap-readings that §5–§7 have
 > since corrected.
