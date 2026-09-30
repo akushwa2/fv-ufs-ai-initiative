@@ -95,9 +95,11 @@ disposition), so the team can chase the original owner.
 ## Rules for building/maintaining records
 
 - **⛔ PREFLIGHT GATE (do first — see `issues/_TEMPLATE.md` top):** before ANY analysis or record-writing,
-  **retrieve the whole sighting** (every field + **every comment** — cross-check the UI comment count vs the
-  tool's, **and review the comment `id`s in chronological/thread order to catch mid-thread gaps** the API
-  silently drops, e.g. `…192 → 195–199 → 206437` where `195–199` were omitted), **follow the ticket graph**
+  **retrieve the whole sighting** (every field + **every comment**). **Use THE 100% method:**
+  `GET /rest/article/{id}?fields=comments` (hsdes.intel.com; Kerberos/SSO-cookie; whole thread in one field,
+  size-immune) via `tools/hsd-comments.ps1 -Id <id>`. Do NOT trust the co-design/GENI agents (truncate) or the
+  web Comment tab (503-flaky). **Review the comment `id`s in chronological/thread order** (the parsed
+  `++++<id> <idsid>` list) to catch gaps, **follow the ticket graph**
   (dump/RTL/debug analysis often lives on linked/promoted/parent tickets, not the sighting), and **retrieve
   every attached log**. **Anything you cannot pull** — image/snapshot comments, login-gated pages, unsupported
   tenants, truncated `comments` fields, remote-share dumps — **must be reported to the user with the EXACT

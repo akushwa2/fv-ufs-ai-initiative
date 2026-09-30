@@ -3,9 +3,12 @@
 > ## ⛔ MANDATORY PREFLIGHT — do this BEFORE any analysis or record-writing (do NOT skip)
 > A record built on a partial pull is a **wrong** record. Before writing anything:
 > 1. **Retrieve the ENTIRE sighting** — every structured field **and every comment**, not just the summary
->    or the first N comments. HSD's API truncates the `comments` field on large tickets; the co-design
->    agent may return only a subset. **Cross-check the comment count**: compare the number of comments the
->    HSD UI shows vs. what the tool returned. If they differ, you have NOT pulled them all.
+>    or the first N comments. **THE 100% METHOD (use this — no token, any size):**
+>    `GET /rest/article/{id}?fields=comments` on hsdes.intel.com returns the WHOLE thread in one
+>    `data[0].comments` field (Kerberos/SSO-cookie; immune to size; no pagination to drop comments).
+>    Run `tools/hsd-comments.ps1 -Id <id>` → parses `++++<commentId> <idsid>` records to `comments_<id>.md`.
+>    Do **not** rely on the co-design/GENI agents (they truncate) or the web UI Comment tab (503-flaky,
+>    not automatable). Cross-check the parsed count against the UI badge (UI may over-count images/system rows).
 > 1b. **Review the comment IDs in CHRONOLOGICAL (thread) order and hunt for mid-thread gaps.** Count alone is
 >    not enough — the API can **silently drop image/dump-heavy comments in the *middle* of the thread**. List
 >    every comment `id` in order and look for **sequence breaks** (e.g. thread shows `…192 → 195 → 196 → 197

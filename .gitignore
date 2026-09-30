@@ -33,3 +33,6 @@ ufs-log-inbox/*
 # Raw .txt captures (register dumps, attribute lists, etc.) — local only; keep .txt inside skills
 *.txt
 !.github/skills/**/*.txt
+
+# Raw HSD comment dumps (internal UNC paths / MSFT comms) - local only
+.github/skills/**/comments_*.md
