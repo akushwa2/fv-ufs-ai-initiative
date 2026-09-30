@@ -94,6 +94,16 @@ disposition), so the team can chase the original owner.
 
 ## Rules for building/maintaining records
 
+- **⛔ PREFLIGHT GATE (do first — see `issues/_TEMPLATE.md` top):** before ANY analysis or record-writing,
+  **retrieve the whole sighting** (every field + **every comment** — cross-check the UI comment count vs the
+  tool's, **and review the comment `id`s in chronological/thread order to catch mid-thread gaps** the API
+  silently drops, e.g. `…192 → 195–199 → 206437` where `195–199` were omitted), **follow the ticket graph**
+  (dump/RTL/debug analysis often lives on linked/promoted/parent tickets, not the sighting), and **retrieve
+  every attached log**. **Anything you cannot pull** — image/snapshot comments, login-gated pages, unsupported
+  tenants, truncated `comments` fields, remote-share dumps — **must be reported to the user with the EXACT
+  comment `id`s + owning ticket (and attachment filenames) BEFORE building the record**, with a request to
+  supply it. Never say “I can't get this data” without listing the precise IDs the user must paste/attach. Do
+  not silently proceed on a partial pull.
 - **One canonical record per bug**, even when it spans multiple HSD tickets/tenants. List all
   ticket IDs under §10 with their role (origin / IP-debug / disposition / fix / prior-art).
 - **Mark every unretrievable or missing field `UNKNOWN`** — gaps are signal.

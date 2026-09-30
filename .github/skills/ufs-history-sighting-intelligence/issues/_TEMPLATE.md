@@ -1,5 +1,32 @@
 # Issue Record — <ID> — <short title>
 
+> ## ⛔ MANDATORY PREFLIGHT — do this BEFORE any analysis or record-writing (do NOT skip)
+> A record built on a partial pull is a **wrong** record. Before writing anything:
+> 1. **Retrieve the ENTIRE sighting** — every structured field **and every comment**, not just the summary
+>    or the first N comments. HSD's API truncates the `comments` field on large tickets; the co-design
+>    agent may return only a subset. **Cross-check the comment count**: compare the number of comments the
+>    HSD UI shows vs. what the tool returned. If they differ, you have NOT pulled them all.
+> 1b. **Review the comment IDs in CHRONOLOGICAL (thread) order and hunt for mid-thread gaps.** Count alone is
+>    not enough — the API can **silently drop image/dump-heavy comments in the *middle* of the thread**. List
+>    every comment `id` in order and look for **sequence breaks** (e.g. thread shows `…192 → 195 → 196 → 197
+>    → 198 → 199 → 206437…` but the tool returned `…192 → 206437…`, so `195–199` were dropped). **Ask the user
+>    to confirm the true ordered ID list** and reconcile it against what you retrieved before proceeding.
+> 2. **Follow the ticket graph** — a sighting's dump/RTL/debug analysis often lives on its **linked/promoted/
+>    parent tickets** (origin bug, `promoted_id`, errata writeup), NOT on the sighting itself. Retrieve those
+>    too. (E.g. dump-analysis comments may be on the IP-debug promoted ticket, absent from the sighting.)
+> 3. **Retrieve ALL attached logs** — every attached dump/trace/log referenced (GDHM/`\\…\` shares, FTH,
+>    VISA, storport, register dumps). Read them, don't just cite them.
+> 4. **Flag what you CANNOT pull, up front — WITH EXACT IDs.** For anything not text-retrievable (image/
+>    snapshot comments, login-gated pages, unsupported tenants, **truncated `comments` fields**, remote-share
+>    dumps): **hand the user a precise list — each missing comment's `++++<id> <author>` + which ticket/tenant
+>    it lives on, plus any attachment filenames.** Ask them to supply it (paste / attach a `.txt` / share the
+>    browser page). **Cross-check the HSD-UI comment count vs the tool's**; if a ticket's `comments` field
+>    truncates (only the first marker visible), **say so and name the ticket** so the user isn't left guessing.
+>    Never say “I can't get this” without also giving the exact IDs the user must provide. Do not silently
+>    proceed on a partial pull.
+> 5. Only after 1–4 (or explicit user go-ahead on the known gaps) begin analysis / record prep. Record every
+>    unresolved gap in §11 with its reason (`[gap]`), and note in `data_source` exactly what was vs wasn't pulled.
+>
 > Copy this file to `issues/<primary-ticket-id>.md` and fill every field.
 > Mark anything not retrievable/confirmed as **UNKNOWN** (gaps are signal).
 > Use ONLY controlled values from `reference/taxonomy.md`. Explain jargon via `reference/ufs-glossary.md`.
