@@ -9,7 +9,7 @@ mcp_status: gap            # no MCP today — analyzed skill-guided (signal deco
 schema_ready: no
 time_base: visa-sample-clock
 provides_anchors: [PkgC exit/entry, ufs_prim_clkreq assert, req_sa assert, int_sts read]
-signature_count: 1
+signature_count: 2
 ```
 
 ## 1. Identity — what it captures & which UFS layers it sees
@@ -53,6 +53,7 @@ No MCP. Read manually. Key signals: `ufs_prim_clkreq`, `req_sa`, `ufspw1_pmc_pgd
 | Signature | Appearance in this log | Means | Confidence | Sighting IDs |
 |-----------|------------------------|-------|-----------|--------------|
 | fabric-wake-then-hung-int_sts | `ufs_prim_clkreq`+`req_sa=1` force PkgC exit → `int_sts` read hangs, ~804µs gap | UFS upstream wake mid-PKGC, resources late → OCP fabric timeout | confirmed | 16027585017 |
+| no-txn-pending-lost-above-psf0 | at failure, **no transaction pending in UFS**, confirmed at both **PSF4** and **PSF0** monitor points | the SCSI command never reached the UFS IP at all — it was lost *above* PSF0 (D2D boundary / compute die), not a UFS-side or fabric-side fault; rules out a fabric-timeout explanation (contrast with `fabric-wake-then-hung-int_sts`, where UFS IS seen active) | confirmed | 16029554884 |
 
 ## 8. Examples with issue background (feedback loop)
 - **16027585017 — UFS-primary BSOD on PKGC.** *Issue:* WCL, UFS primary, BSOD/hang when PKGC/S0ix
@@ -60,6 +61,15 @@ No MCP. Read manually. Key signals: `ufs_prim_clkreq`, `req_sa`, `ufspw1_pmc_pgd
   `ufs_prim_clkreq`+`req_sa=1` forced a PkgC exit, then the driver's downstream `int_sts` read hung —
   **~804.432 µs** between wake and hang. *How it fit the RCA:* the smoking gun for **OCP fabric timeout
   from missing LTR** — proved the fault is fabric power-state timing, not the UFS data path.
+- **16029554884 — UFS HLK Connected-Standby soft-hang.** *Issue:* SCSI unit-timeout + vendor
+  endpoint-reset recovery gap (WCL-U, Win25H2). *What VISA showed (comment 10 #2):* at the moment of
+  the ~10 s unit-timeout, **no transaction was pending in UFS** — confirmed at both the **PSF4** and
+  **PSF0** monitor points. *How it fit the RCA:* this is the opposite finding from 16027585017 — there,
+  UFS was alive and a fabric read was hung; here, the command **never arrived at UFS in the first place**.
+  That pointed the investigation **upstream of the UFS IP** (ruling out a UFS-side or fabric-timeout
+  explanation) and toward the eventual root cause: a **config/driver-side** issue (UFS `FeatureFlags`
+  completion-method, confirmed later via the sibling ticket `15019125953`) rather than a silicon/fabric
+  fault — the "missed completion" is invisible to VISA because the command never left the host side.
 
 ## 9. VISA signal dictionary (accumulating)
 > **Every VISA analysis appends here:** signal → block → observed value(s) → meaning → the condition it

@@ -9,7 +9,7 @@ mcp_status: gap            # no MCP today — skill-guided decode (glossary + re
 schema_ready: no
 time_base: n/a             # point-in-time snapshot, not a timeline; anchors other logs at the hang instant
 provides_anchors: [IS_ SBFES set, IS_ HCFES set, PMC ufs pwr_sts, PKGC entry counters, ufsx2_ip_ready_sts=0, fuse-puller FSM Idle]
-signature_count: 3
+signature_count: 4
 ```
 
 > **What this file is (merged):** it is BOTH (a) the **register-dump log module** — how to capture the
@@ -59,6 +59,10 @@ read → value meaning (healthy vs fault, with the real observed value) → sigh
 | **`UECDL`** (Data Link Layer UniPro error) | `sv.sockets.soc.ufs.scc_ufs_top.scs_dwc_ufshc_c0_mmio.uecdl` — `.err` / `.ec` | Same as above | `ec` bits: NAC received, replay/AFC/FC timer expiry, CRC error, RX overflow, wrong seq #, frame-syntax errors | | 16027585017 | platform-confirmed (PTL) |
 | **`UECN`** (Network Layer UniPro error) | `sv.sockets.soc.ufs.scc_ufs_top.scs_dwc_ufshc_c0_mmio.uecn` — `.err` / `.ec` | Same as above | `ec` bits: unsupported header type, bad DeviceID encoding, LHDR trap packet dropping | | 16027585017 | platform-confirmed (PTL) |
 | **`UECT`** (Transport Layer UniPro error) | `sv.sockets.soc.ufs.scc_ufs_top.scs_dwc_ufshc_c0_mmio.uect` — `.err` / `.ec` | Same as above | `ec` bits: unsupported header type, unknown CPortID, no connection RX, bad TC, E2E credit overflow | | 16027585017 | platform-confirmed (PTL) |
+| **`HCS.DP`** (Device Present, bit 0) | `sv.sockets.soc.ufs.scc_ufs_top.scs_dwc_ufshc_c0_mmio.hcs.dp` (full reg: `hcs.show()`) | After an Endpoint Reset (`DME_ENDPOINTRESET`), to check whether the device reports link-lost or link-up | `0` = link lost (seen on Samsung); `1` = link retained (seen on SK hynix) — the register-level branch point between a recovering and a hanging device | 16029554884 | confirmed |
+| **`IS_.DFES`** (Device Fatal Error Status, bit 11) | `sv.sockets.soc.ufs.scc_ufs_top.scs_dwc_ufshc_c0_mmio.is_.dfes` | Same as above (paired with `HCS.DP`) | **set** on Samsung (routes OS to the HCE-toggle/re-init recovery path per owner's hypothesis); **clear** on SK hynix (device reports no error — OS recovery doesn't re-init, hangs). **Caveat:** the register states are confirmed; the causal link to "which OS code path is taken" is the ticket owner's own hedged hypothesis ("perhaps"), not a traced confirmation — see sighting §7 | 16029554884 | confirmed (register state) / inferred (OS-path causal link) |
+| **`IS_.ULLS`** (UIC Link Lost Status, bit 7) | `sv.sockets.soc.ufs.scc_ufs_top.scs_dwc_ufshc_c0_mmio.is_.ulls` | Same as above | set on Samsung, clear on SK hynix — mirrors `HCS.DP` | 16029554884 | confirmed |
+| **`IS_.UDEPRI`** (UIC DME_ENDPOINTRESET Indication, bit 1) | `sv.sockets.soc.ufs.scc_ufs_top.scs_dwc_ufshc_c0_mmio.is_.udepri` | Same as above | flags that an Endpoint Reset occurred — set on **both** vendors (confirms the reset was issued; doesn't by itself discriminate recovery outcome) | 16029554884 | confirmed |
 
 ### 3.2 PMC power-gating status registers
 
@@ -139,6 +143,7 @@ read → value meaning (healthy vs fault, with the real observed value) → sigh
 | is-sbfes-hcfes-fatal | `IS_` bits 17+16 set | OCP/system-bus fatal → core stopped, needs reset | confirmed | 16027585017 |
 | pkgc-counters-frozen | C10_1 reached, C10_2/3=0, identical across 2 reads | system stuck at capture (not merely shallow) | confirmed | 16027585017 |
 | fusepull-cdc-ipready-split | `ufsx2_ip_ready_sts=0` + `ufspw1_ip_ready_sts=1`, `fuse_strap_cpl_status=0x0`, `pc_histo` pinned `0xb0548` | boot-time fuse-pull lost to a PGCB/CDC race; PMC stuck Phase-3 | confirmed | 16029205689 |
+| endpointreset-dp-dfes-vendor-split | `HCS.DP`=0 + `IS_.DFES`/`ULLS` set (Samsung) vs `HCS.DP`=1 + `IS_.DFES`/`ULLS` clear (SK hynix), both after `DME_ENDPOINTRESET` (`IS_.UDEPRI` set on both) | device-reported link state after Endpoint Reset differs by vendor — the register-level fingerprint of which vendor's recovery succeeds vs hangs. Which OS recovery branch this register split actually drives is an **unconfirmed hypothesis**, not traced in code/log | confirmed (registers) / inferred (OS-path link) | 16029554884 |
 
 ## 8. Examples with issue background (feedback loop)
 - **16027585017 — UFS-primary BSOD on PKGC.** *Issue:* WCL UFS-primary hang when PKGC enabled.
@@ -155,6 +160,17 @@ read → value meaning (healthy vs fault, with the real observed value) → sigh
   `ufs_pga` served but IOSF2OCP-bridge request never received. *How it fit the RCA:* no fuse *error* + IP-ready
   split + lost bridge request = the fuse-pull never completed → PGCB/CDC async-reset metastability. The
   register set is decisive **as a set** (no single register flags the hang alone).
+- **16029554884 — UFS HLK Connected-Standby soft-hang.** *Issue:* SCSI unit-timeout + vendor
+  endpoint-reset recovery gap (WCL-U, Win25H2). *What the register set showed (comment `1667271550`,
+  images `comment_1667271550.png`=Samsung, `comment_1667271550_1.png`=SK hynix):* after `DME_ENDPOINTRESET`,
+  **Samsung** reports `HCS.DP=0` (link lost) + `IS_.DFES`/`ULLS` **set**; **SK hynix** reports `HCS.DP=1`
+  (link retained) + `IS_.DFES`/`ULLS` **clear**; `IS_.UDEPRI` set on both (confirms the reset fired on both).
+  *How it fit the RCA:* this vendor-level register split is the fingerprint for **why Samsung recovers and
+  SK hynix hangs** after an Endpoint Reset — but the step from "registers differ" to "therefore storufs
+  takes a different recovery code path" was the ticket owner's **own hedged hypothesis** ("perhaps this sets
+  driver on a certain path of recovery"), validated only indirectly when forcing an unconditional HCE-toggle
+  fixed both vendors. *Gap:* exact per-bit hex not transcribed pixel-perfect from the snaps — field-map and
+  set/clear per vendor are confirmed, raw hex is not.
 
 ---
 
