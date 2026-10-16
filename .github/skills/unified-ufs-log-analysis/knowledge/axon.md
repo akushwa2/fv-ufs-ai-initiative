@@ -9,7 +9,7 @@ mcp_status: available
 schema_ready: no            # MCP returns AXON report JSON; we normalize to the event schema (§4)
 time_base: axon-record-ts
 provides_anchors: [error-record time, failure timestamp]
-signature_count: 0
+signature_count: 1
 ```
 
 ## 1. Identity — what it captures & which UFS layers it sees
@@ -64,8 +64,14 @@ Content objects reachable here: **crashlog** (`intel-hw-errors-report-v1`, `inte
 ## 7. Known signatures (learning loop)
 | Signature | Appearance in this log | Means | Confidence | Sighting IDs |
 |-----------|------------------------|-------|-----------|--------------|
-| _(none yet — populate from real AXON records)_ | | | | |
+| sighting-has-single-statusscope-record | `get_status_scope_insights_for_sighting(<id>)` returns **1** record; `tickets` field lists **multiple** HSD ids (the sighting + its merge-target) | the AXON record is shared across merged/duplicate sightings — confirms a merge relationship at the failure-DB level; drill in with `analyze_failure` (see `statusscope.md`) | confirmed | 16027135581, 16027585017 |
 
 ## 8. Examples with issue background (feedback loop)
-- _(none yet.)_ **Next step for 16027585017:** run `get_status_scope_insights_for_sighting("16027585017")`
-  to see if AXON holds records for this sighting; if so, drill in and add a real example + signatures here.
+- **16027135581 / 16027585017 — UFS-primary DPC_WATCHDOG on PkgC6/C10.** `get_status_scope_insights_for_sighting("16027135581")`
+  returned exactly **1** AXON record (`019633cb-887d-78d1-97c2-cdb3d1bfc8b8`), whose `tickets` field lists
+  **both** `16027135581` **and** `16027585017` — confirming (at the failure-DB level) that these sightings are
+  the same failure / a merge. Drilled in via `statusscope.md`'s `analyze_failure` for the lock-FSM hang chain
+  (see that module's §8). **BKM reinforced:** when a sighting's SS record is linked to multiple HSD ids, treat
+  it as a duplicate/merge signal and avoid minting a new pattern. **Trap:** this record's `platform` reads
+  `PTL` though the DUT is **WCL** (PythonSV run with a Pantherlake nightly) — confirm `platform.tla` against the
+  program under debug before trusting it.

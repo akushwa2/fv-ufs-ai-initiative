@@ -9,7 +9,7 @@ mcp_status: available
 schema_ready: no            # returns structured insights/verdict JSON; normalize to the event schema (§4)
 time_base: axon-record-ts
 provides_anchors: [failure timestamp, MCA time, FSM-hang detection time]
-signature_count: 0
+signature_count: 1
 ```
 
 ## 1. Identity — what it captures & which UFS layers it sees
@@ -72,8 +72,17 @@ PCU/…) + error type (Cache/TLB/Bus-Interconnect/Internal) → looks up related
 ## 7. Known signatures (learning loop)
 | Signature | Appearance in this log | Means | Confidence | Sighting IDs |
 |-----------|------------------------|-------|-----------|--------------|
-| _(none yet — populate from real `analyze_failure` verdicts)_ | | | | |
+| ufs-stuck-txn->lock-fsm-stop_core->uncore-hang | `analyze_failure` verdict = **HW Hang**; headline `cNCU_IDI_Bridge:LockFSM_Stuck:Stop_Core_Cmp`. Chain: `UFS:Stuck_Transaction` + `Downstream PSF Completion Tracker ≠ 0 PSF0.PSF4→PSF4.UFS` → `CCF 2 valid entries (cbo0,cbo3)` → `cNCU/sNCU lock_trk FSM = Stop_Core / Stop_Core_Cmp / LKFSM_STOP_REQ_1_CNCU` → `core hung with valid TOR` + `non posted transactions are stuck`. Collateral: `PM_PSTATE_TRANSITION` 12-domain mismatch, IOAPIC EOI-missing VTd int. | a stuck non-posted **UFS** read stalls the fabric above PSF0 and **blocks an in-flight LOCK/atomic flow that already quiesced the cores** → cores can't resume → **uncore hang** → THREE_STRIKE / DPC_WATCHDOG. The deep-PkgC / missing-LTR fabric-timeout class (Pattern P1). | confirmed (axon MCP) | 16027135581, 16027585017 |
 
 ## 8. Examples with issue background (feedback loop)
-- _(none yet.)_ **Next step for 16027585017:** once `axon.md`'s sighting query returns failure UUIDs, run
-  `analyze_failure` on each and add the verdict + MCA/FSM findings here with the issue background.
+- **16027135581 / 16027585017 — UFS-primary DPC_WATCHDOG on PkgC6/C10 (Pattern P1 `ufs-fabric-timeout-on-pkgc`).**
+  *Record:* axon `019633cb-887d-78d1-97c2-cdb3d1bfc8b8` (linked to **both** sightings). *How pulled:*
+  `analyze_failure("019633cb-…")` — 53 insights, verdict **Hardware Hang**. *What it showed:* the full
+  escalation chain above — stuck UFS non-posted txn (`access to device: UFS is stuck`, addr `0x10813338020`),
+  PSF completion tracker not draining `PSF0.PSF4→PSF4.UFS`, CCF `cbo0`/`cbo3` valid, and the **lock FSM wedged**
+  `Stop_Core` → `Stop_Core_Cmp` (`cNCU_IDI_Bridge`) / `LKFSM_STOP_REQ_1_CNCU` (`sNCU`), C-die NOC `memss` ports
+  Rx-disconnecting, IOC `NP_FSM_CPL_WAIT`. *How it fit the RCA:* this is the concrete "one stuck UFS read →
+  whole-SoC hang" mechanism behind the THREE_STRIKE CORE2 / DPC_WATCHDOG — richer than the HSD comment
+  paraphrase (adadi, comment `1666624165`). *Trap:* record **platform label = `PTL A0`** is a PythonSV-config
+  artifact (insight: *"pantherlake Python SV nightly > 21 days out of date"*); DUT is **WCL** (`BAWCLNUC012`).
+  See sighting record `issues/16027135581.md` §5a.
