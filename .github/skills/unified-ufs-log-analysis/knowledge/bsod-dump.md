@@ -10,7 +10,7 @@ mcp_status: available        # NOT an MCP — a Copilot-agent WinDbg toolkit (An
 schema_ready: no             # bsod-copilot emits WinDbg text; we normalize to the event schema (§4)
 time_base: os-uptime
 provides_anchors: [bugcheck time, DPC watchdog fire, storufs reset entry, PnP re-enumerate wedge, forced-hang (bugcheck 0/0xE2)]
-signature_count: 2
+signature_count: 3
 ```
 
 ## 1. Identity — what it captures & which UFS layers it sees
@@ -100,6 +100,7 @@ Guides available: **0xA, 0x1A, 0x1E, 0x3B, 0x50, 0x7A, 0x7E, 0x7F, 0x9F, 0xD1, 0
 |-----------|------------------------|-------|-----------|--------------|
 | storufs-reset-dpc->20s | DPC watchdog fires in `UfsResetBus…StallExecution` path | UFS bus reset stalls >20s after fabric hang → watchdog BSOD | confirmed | 16027585017 |
 | forced-hang-ufs-reenum-wedge | **bugcheck 0** (debugger break-in / `0xE2`), `!analyze` bucket `0x0_nt!SwapContext`; `!pnptriage` shows a PnP worker blocked ~22–30s in `storport!RaidBusEnumeratorIssueSynchronousRequest` (a bus-rescan **INQUIRY**); `!irp` = `IRP_MJ_PNP/QUERY_DEVICE_RELATIONS` on `\Driver\storufs`; `!devnode` (PCI `VEN_8086&DEV_4D47`, ServiceName `storufs`) stuck `DeviceNodeEnumeratePending` with StateHistory flapping `Started↔EnumerateCompletion↔EnumeratePending`. **Discriminator:** at the hang the devnode is in **D0** (`!devnode` power = PowerDeviceD0) and `!storadapter` = **Working** → **NOT** a power-gate/D3 issue — the powered-on device just won't answer the INQUIRY. Cascade reaches **NTFS** (`NtfsCheckUsnTimeOutWorker` on an NTFS resource) and the **registry lock** (`CmpLockRegistry`). | **Not a bugcheck** — a *forced dump of a hung system*: a synchronous request to the UFS device (here the **enumeration INQUIRY**, not a SCSI READ) never completes → PnP worker wedges → NTFS + registry + other threads pile up → whole-system hang. The UFS devnode is in a **re-enumeration loop**. Same root shape as the data-path recovery hang, different OS entry point. Route via **`BSOD0xE2-guide.md`**. | confirmed (2 dumps: 2025-12-12 & 12-22) | 16029554884 |
+| 9f-driver-power-state-ufs-rirr-reset-loop | **`0x9F` DRIVER_POWER_STATE_FAILURE** during **S4 resume / warm-reset** on a UFS-only system; `storufs` reset path (RESET LUN → RESET DEVICE → RESET BUS) looping every ~30s; event logs **500 (Unit Timeout)** + **550 (hierarchical reset)**; HCI completes commands (CNR set, doorbell cleared) but the **ISR is never invoked**. Mis-scoped-WA variants (don't confuse): `0x9F` with **IRP pending on `UcmUcsiAcpiClient` `\_SB.UBTC._DSM`** = a **different** USB-C/UCSI issue; `IOMMU_INTERRUPT_REMAPPING_FAULT (0x1fb)` / `pc:Ab04` = fallout of the all-IP (non-UFS-scoped) RIRR-read backport. | the OS-visible face of the **P2SB EOI-bypasses-MSI / IOAPIC-RIRR-stuck** bug: the UFS level-triggered interrupt line is wedged (register-dump `ioapic-rirr-stuck-ufs-is-clean`), so completions stop, StorPort unit-timeout fires, the reset cascade succeeds via polling but re-wedges immediately → loop → `0x9F`. **Not a UFS fault.** | confirmed | 16030172470 |
 
 ## 8. Examples with issue background (feedback loop)
 - **16027585017 — UFS-primary BSOD on PKGC.** *Issue:* UFS-primary hang on PKGC. *What the dump showed:*

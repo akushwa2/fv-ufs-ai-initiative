@@ -9,7 +9,7 @@ mcp_status: gap            # no MCP today — skill-guided decode (glossary + re
 schema_ready: no
 time_base: n/a             # point-in-time snapshot, not a timeline; anchors other logs at the hang instant
 provides_anchors: [IS_ SBFES set, IS_ HCFES set, PMC ufs pwr_sts, PKGC entry counters, ufsx2_ip_ready_sts=0, fuse-puller FSM Idle]
-signature_count: 4
+signature_count: 5
 ```
 
 > **What this file is (merged):** it is BOTH (a) the **register-dump log module** — how to capture the
@@ -144,6 +144,7 @@ read → value meaning (healthy vs fault, with the real observed value) → sigh
 | pkgc-counters-frozen | C10_1 reached, C10_2/3=0, identical across 2 reads | system stuck at capture (not merely shallow) | confirmed | 16027585017 |
 | fusepull-cdc-ipready-split | `ufsx2_ip_ready_sts=0` + `ufspw1_ip_ready_sts=1`, `fuse_strap_cpl_status=0x0`, `pc_histo` pinned `0xb0548` | boot-time fuse-pull lost to a PGCB/CDC race; PMC stuck Phase-3 | confirmed | 16029205689 |
 | endpointreset-dp-dfes-vendor-split | `HCS.DP`=0 + `IS_.DFES`/`ULLS` set (Samsung) vs `HCS.DP`=1 + `IS_.DFES`/`ULLS` clear (SK hynix), both after `DME_ENDPOINTRESET` (`IS_.UDEPRI` set on both) | device-reported link state after Endpoint Reset differs by vendor — the register-level fingerprint of which vendor's recovery succeeds vs hangs. Which OS recovery branch this register split actually drives is an **unconfirmed hypothesis**, not traced in code/log | confirmed (registers) / inferred (OS-path link) | 16029554884 |
+| ioapic-rirr-stuck-ufs-is-clean | IOAPIC `rte_line_25` (UFS line) **`remote_irr`(bit14)=1 STUCK** + `delivery_status`(bit12)=1, `trigger_mode`=1 (level), `polarity`=1; **UFS `IS_` shows ONLY `utrcs`(bit0)=1, all fatal bits `SBFES`/`HCFES`/`DFES`=0** | the UFS level-triggered interrupt line is **wedged** — EOI never cleared RIRR, so no further UFS interrupts are delivered though the controller is healthy. The clean `IS_` is the decisive **rule-out of a UFS fault**: this is an IOAPIC/P2SB EOI-ordering problem, not UFS. (UFS at BDF `0:1e.7`, `pci_irq1=0x19`=25 → `rte_line_25`; MSI `0xfee00170`/`0xc081`, VT-d posted-interrupt remapped.) Recovery in SV: `is_.write(1)` clears DS but RIRR stays 1; a following `set_eoi(0x81)` clears it (`0xf081→0xe081→0xa081`). | confirmed | 16030172470 |
 
 ## 8. Examples with issue background (feedback loop)
 - **16027585017 — UFS-primary BSOD on PKGC.** *Issue:* WCL UFS-primary hang when PKGC enabled.
@@ -171,6 +172,18 @@ read → value meaning (healthy vs fault, with the real observed value) → sigh
   driver on a certain path of recovery"), validated only indirectly when forcing an unconditional HCE-toggle
   fixed both vendors. *Gap:* exact per-bit hex not transcribed pixel-perfect from the snaps — field-map and
   set/clear per vendor are confirmed, raw hex is not.
+- **16030172470 — UFS-primary 0x9F on S4/warm-reset (P2SB EOI bypasses MSI completion).** *Issue:* WCL/PTL,
+  UFS-only, 0x9F during S4-resume / warm-reset; interrupts stop though HCI completes. *What the register set
+  showed (PythonSV, comment `1363666535` snapshots):* IOAPIC **`rte_line_25.remote_irr`=1 STUCK** +
+  `delivery_status`=1, `trigger_mode`=1 (level), `polarity`=1; UFS **`is_.show()` = only `utrcs`=1**, with
+  `SBFES`/`HCFES`/`DFES`=**0**; `pcicfgctrl.pci_irq1=0x19`(=25) mapping UFS to `rte_line_25`;
+  `print_rte_path()` decoding UFS BDF `0:1e.7`, MSI `0xfee00170`/`0xc081`, VT-d posted-interrupt remapped
+  (notify vec `0x1d`, APIC `0x46`). SV recovery experiment walked `rte_line_25` `0xf081→0xe081→0xa081`
+  (clear `IS` drops DS; only a following `set_eoi(0x81)` clears RIRR). *How it fit the RCA:* the **RIRR-stuck +
+  clean-`IS_`** pair is the whole diagnosis in two reads — it **rules UFS out** and points at the IOAPIC/P2SB
+  EOI-vs-MSI-completion ordering (confirmed on VISA `servicePCmdValid[3]/[0]` and the NVL P2SB bugeco
+  `16025859186`). **Capture trap:** a bare `set_eoi` does **not** recover a wedged line — don't conclude EOI
+  "worked" from it. *Gap:* raw per-bit hex transcribed from the SV snapshots, not a machine dump.
 
 ---
 

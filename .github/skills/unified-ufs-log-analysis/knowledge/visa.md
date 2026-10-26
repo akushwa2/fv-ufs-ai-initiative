@@ -9,7 +9,7 @@ mcp_status: gap            # no MCP today — analyzed skill-guided (signal deco
 schema_ready: no
 time_base: visa-sample-clock
 provides_anchors: [PkgC exit/entry, ufs_prim_clkreq assert, req_sa assert, int_sts read]
-signature_count: 2
+signature_count: 3
 ```
 
 ## 1. Identity — what it captures & which UFS layers it sees
@@ -54,6 +54,7 @@ No MCP. Read manually. Key signals: `ufs_prim_clkreq`, `req_sa`, `ufspw1_pmc_pgd
 |-----------|------------------------|-------|-----------|--------------|
 | fabric-wake-then-hung-int_sts | `ufs_prim_clkreq`+`req_sa=1` force PkgC exit → `int_sts` read hangs, ~804µs gap | UFS upstream wake mid-PKGC, resources late → OCP fabric timeout | confirmed | 16027585017 |
 | no-txn-pending-lost-above-psf0 | at failure, **no transaction pending in UFS**, confirmed at both **PSF4** and **PSF0** monitor points | the SCSI command never reached the UFS IP at all — it was lost *above* PSF0 (D2D boundary / compute die), not a UFS-side or fabric-side fault; rules out a fabric-timeout explanation (contrast with `fabric-wake-then-hung-int_sts`, where UFS IS seen active) | confirmed | 16029554884 |
+| p2sb-eoi-before-msi-cmpl | on the ITSS MSI-gen path, `servicePCmdValid[3]` (MWr→CrWr master) then **`servicePCmdValid[0]`** (EOI-conversion master) both asserted; `itss/msigen/w2sbsm_ps` steps `0x3`→`0x5`→`0x0`; EOI serviced to P2SB **before** the MSI completion returns to ITSS | the P2SB bridge prioritized posted/EOI cycles over the MSI completion (PCIe posted-vs-non-posted ordering bug) → the IOAPIC completion that sets RIRR arrives after the EOI → RIRR stuck (see register-dump `ioapic-rirr-stuck-ufs-is-clean`). `w2sbsm_ps` reaching `0x5`→`0x0` = ITSS finally got the late MSI completion and proceeded | confirmed | 16030172470 |
 
 ## 8. Examples with issue background (feedback loop)
 - **16027585017 — UFS-primary BSOD on PKGC.** *Issue:* WCL, UFS primary, BSOD/hang when PKGC/S0ix
@@ -70,6 +71,16 @@ No MCP. Read manually. Key signals: `ufs_prim_clkreq`, `req_sa`, `ufspw1_pmc_pgd
   explanation) and toward the eventual root cause: a **config/driver-side** issue (UFS `FeatureFlags`
   completion-method, confirmed later via the sibling ticket `15019125953`) rather than a silicon/fabric
   fault — the "missed completion" is invisible to VISA because the command never left the host side.
+- **16030172470 — UFS-primary 0x9F (P2SB EOI bypasses MSI completion).** *Issue:* WCL/PTL UFS-only 0x9F on
+  S4-resume/warm-reset; IOAPIC RIRR stuck. *What VISA showed (comment `14615454242` snapshots, target
+  Wildcat Lake U):* on the ITSS MSI-generation path, several **posted** cycles reach P2SB while ITSS is
+  generating the MSI (`itss/msigen/w2sbsm_ps=0x3`); the **EOI (`servicePCmdValid[0]`) is serviced before the
+  MSI completion** returns, with `servicePCmdValid[3]` (the MWr→CrWr master) also asserted; `w2sbsm_ps`
+  only advances `0x5`→`0x0` once the late MSI completion finally arrives. *How it fit the RCA:* this is the
+  **direct fabric-level proof** of the P2SB posted-vs-non-posted ordering bug — EOI bypasses MSI completion,
+  so the IOAPIC RIRR (register-dump `rte_line_25`) is left stuck. It matched the NVL P2SB bugeco `16025859186`
+  RTL (sbep-FIFO / `selectedPMaster` 3→0) exactly, and reproduced on NVL only with the fix chicken-bit off
+  (`p2sbc.ccpeome=0x1`). UFS is the *exposer* (heavy line-based level IRQ load), not the fault.
 
 ## 9. VISA signal dictionary (accumulating)
 > **Every VISA analysis appends here:** signal → block → observed value(s) → meaning → the condition it
@@ -105,3 +116,11 @@ No MCP. Read manually. Key signals: `ufs_prim_clkreq`, `req_sa`, `ufspw1_pmc_pgd
 | `ufs_prim_clkreq` | asserted | UFS primary clock request | **assert = UFS upstream cycle waking PkgC** | 16027585017 |
 | `req_sa` | `1` | service / PkgC-exit request | **`1` = force PkgC exit** (paired with clkreq assertion) | 16027585017 |
 | `int_sts` (driver read) | hung | driver's Interrupt Status read on the fabric | **read never completes = downstream stuck** (804.432 µs after the wake) | 16027585017 |
+
+### ITSS / P2SB interrupt-generation block — `itss/msigen`, P2SB service master
+| Signal | Value(s) seen | Meaning | Condition / how to read | Sighting |
+|--------|---------------|---------|-------------------------|----------|
+| `servicePCmdValid[0]` | asserted at fault | P2SB posted-command master 0 = **EOI conversion** logic | asserted alongside `[3]` = EOI cycle competing with the MSI completion for the sbep FIFO | 16030172470 |
+| `servicePCmdValid[3]` | asserted at fault | P2SB posted-command master 3 = **MWr→CrWr** logic | the master selection flips 3→0 (`selectedPMaster`), making RTL see `outMsgPReqValid` continuous → EOI slips ahead of completion | 16030172470 |
+| `itss/msigen/w2sbsm_ps` | `0x3`→`0x5`→`0x0` | ITSS MSI-gen write-to-sideband state machine | `0x3` = generating/sending MSI MWr to P2SB; stuck until the **late** MSI completion arrives, then `0x5`→`0x0` = proceeded. EOI serviced during the `0x3` window = the bug | 16030172470 |
+| `EOI_Access` (from ITSS VISA) | pulse before MSI cmpl | directed-EOI access seen at P2SB | an EOI posted cycle arriving **before** the MSI completion = the ordering violation | 16030172470 |
