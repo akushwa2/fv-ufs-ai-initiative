@@ -1,0 +1,38 @@
+# Sighting provenance — kept locally, never committed
+# Raw evidence images (waveforms/screenshots) referenced by records as provenance only
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+
+# Source mail / minutes (informal, may not be shareable) — data is folded into records instead
+*.msg
+*.eml
+
+# Reference material / specs (provenance only, may not be shareable) — kept locally
+*.pdf
+*.pptx
+~$*.pptx
+
+# Python
+__pycache__/
+*.pyc
+
+# Editor / tooling artifacts
+.vscode/
+
+# UFS log inbox — raw log-set case folders are local only (large/sensitive); keep README + template
+ufs-log-inbox/*
+!ufs-log-inbox/README.md
+!ufs-log-inbox/_MANIFEST_TEMPLATE.yaml
+
+# Raw capture logs — local only, never committed
+/NVL Logs/
+
+# Raw .txt captures (register dumps, attribute lists, etc.) — local only; keep .txt inside skills
+*.txt
+!.github/skills/**/*.txt
+
+# Raw HSD comment dumps (internal UNC paths / MSFT comms) - local only
+.github/skills/**/comments_*.md
