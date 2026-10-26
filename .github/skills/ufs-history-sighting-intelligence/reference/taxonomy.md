@@ -53,6 +53,13 @@ Existing signatures:
   (a device that reports link-lost + `IS_.DFES` recovers). Distinct from `ufs-fabric-timeout-on-pkgc`:
   repros with **PKGC disabled** and the lost transaction is **above PSF0** with no fabric error.
   (records: 16029554884)
+- `ufs-p2sb-eoi-rirr-race-on-line-irq` — on a UFS-primary system, a **P2SB sideband PCIe posted-vs-non-posted
+  ordering bug** lets an **EOI bypass the MSI completion** into the sbep FIFO, so the IOAPIC completion that
+  sets **RIRR=1 arrives after the EOI**; the EOI (seen while RIRR=0) is discarded and **RIRR stays stuck=1**,
+  wedging the UFS **line-based level-triggered** interrupt (`rte_line_25`) → ISR never fires though HCI
+  completes → 30 s StorPort UnitTimeout → LUN/DEVICE/BUS reset-cascade loop → `0x9F`. Exposed by heavy UFS
+  I/O on **S4-resume / warm-reset**. Fixed in NVL (P2SB HW); WCL mitigated by an OS IOAPIC-read-before-EOI
+  (25H2'7D); long-term UFS→MSI (HML). UFS is the *exposer*, not the fault. (records: 16030172470)
 
 ## `confidence` (per fact/field or record-level)
 - `confirmed` — stated as fact in the ticket by the debug owner or a structured field.

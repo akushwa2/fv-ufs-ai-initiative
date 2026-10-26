@@ -171,3 +171,57 @@ When a new sighting matches a pattern's **triggers/fingerprint**, apply its **fi
 - The separate HSD ID for the unit-timeout — not yet filed.
 - Whether MSFT ships the full HCE-toggle change or an interim subset.
 - Why `DME_ENABLE` and the PMC user-data `0x15B0–0x15B5` writes appear in the recovery path.
+
+---
+
+## Pattern P4 — P2SB sideband EOI bypasses MSI completion → IOAPIC RIRR stuck (line-based interrupts)
+**Source records:** 16030172470 (cluster: 16025859186 root-cause IP bug, 14027442505, 16030673570, 16028974551, 16030803619, 13015782827, 16031730035)
+**Programs seen:** WCL, PTL (fixed in NVL; WCL-R/MNL also named). ← bump + add programs/IDs each recurrence.
+**Recurrence:** 1 confirmed sighting/cluster (WCL).
+
+> **This is NOT a UFS fault.** UFS is only the *exposer* — a heavy-I/O, **line-based level-triggered**
+> interrupt device. The bug is in the **P2SB bridge**. Any IP on legacy line-based (level) interrupts is
+> exposed. Do not chase UFS link/PHY/protocol; the UFS `IS_` is clean apart from a normal completion.
+
+**Triggers**
+- **S4-hibernate resume** or **warm-reset** cycling with **heavy UFS I/O**.
+- UFS (or any IP) using **legacy line-based, level-triggered** interrupts (WCL UFS has **no MSI generation**).
+- **Corp config** (UFS enabled); **x1 SDHC expedites**. Repro within **< 100 WR/S4 cycles**.
+
+**Fingerprint (how to confirm it's this class)**
+- **IOAPIC `rte_line_25.remote_irr` (RIRR, bit14) = 1 STUCK** + `delivery_status`=1, `trigger_mode`=1 (level), `polarity`=1 — the decisive read.
+- UFS **`IS_` shows ONLY `utrcs`=1**; **`SBFES`/`HCFES`/`DFES` = 0** → no UFS fault.
+- **VISA:** `servicePCmdValid[3]`→`[0]`, `itss/msigen/w2sbsm_ps` `0x3→0x5→0x0` → EOI/posted prioritized over MSI completion to ITSS.
+- Symptom: HCI completes (CNR set, doorbell cleared) but **ISR never fires** → 30 s StorPort `UnitTimeout` → reset-cascade **LUN→DEVICE→BUS** → recovers (polling) → **repeats** → `0x9F` (DRIVER_POWER_STATE_FAILURE). Event logs **500** (Unit Timeout) + **550** (hierarchical reset).
+- **Proof it's the P2SB bug:** on NVL, set chicken bit `pcd.p2sb0.cfg.p2sbc.ccpeome = 0x1` (disables the NVL fix) → issue reproduces.
+
+**First moves (fastest discriminators)**
+1. At the hang, read **`rte_line_25` (RIRR)** + UFS **`IS_`** together → RIRR stuck + IS clean = this class.
+2. Do **not** chase **NAC-bad**, **UFS PHY equalization** (−6 dB sweep), or a driver doorbell-multi-write theory — all proven dead ends.
+3. A bare `set_eoi` does **not** recover a wedged line — don't conclude EOI "worked" from it.
+
+**Log order + WHEN to capture (decisive first)**
+1. **AT the hang, before any reset:** halt, read `rte_line_25.remote_irr` + UFS `IS_`.
+2. **To prove ordering:** VISA `servicePCmdValid[3]/[0]` + `w2sbsm_ps` (trigger FTH on StartCpl→CplDone > 5 µs).
+3. **To localize:** PSF-OBS around the last-good vs failing ISR (UTRLDBR `0x58`, EOI vec `0x81` @ `0xFEC00040`).
+4. **OS side:** WinDbg 0x9F + event logs 500/550; PA only to close the UFS-clean hypothesis (late).
+
+**Likely root cause**
+- **P2SB PCIe posted-vs-non-posted ordering-rule implementation bug** (fixed NVL, missed WCL/PTL): `MWr`→`CrWr` fill the **sbep FIFO**; an **EOI (posted)** bypasses the **MSI completion** into the FIFO (`selectedPMaster` flips 3→0, `servicePCmdValid[3]&[0]` asserted). The IOAPIC completion that sets **RIRR=1 arrives after the EOI**; EOI seen while RIRR=0 is **discarded**; the late completion sets **RIRR=1 permanently** → level line wedged.
+- **Class:** design-rtl.
+
+**Known fix / workaround**
+- **NVL:** HW fix in P2SB (`16025859186`) — EOI special-write cannot pass the MSI completion.
+- **WCL/WCL-R/MNL (no HW fix; SoC BugEco `16030673570` rejected):** **OS mitigation** — Root-OS **IOAPIC `IOREGSEL` read immediately before the EOI write** (fences the late completion; works Hyper-V on/off, no HV change). Shipped in **25H2'7D**. **Must be UFS-scoped** — an all-IP backport caused **IOMMU_INTERRUPT_REMAPPING_FAULT (0x1fb)** / `pc:Ab04` / UCSI-9F regressions.
+- **Alt WA:** move UFS IRQ **level → edge** (UFS IP team: no impact).
+- **Long-term:** UFS IP → **MSI** in **HammerLake** (PCR `16030590109`).
+
+**Prevention checklist (apply to new bring-ups)**
+- **Enable UFS in Corp config** validation (4/5-star, Platform + CVE) — the detection gap here (AR `16031730035`); the bug was **Pre-Si detectable**.
+- Add **`rte_line_N.remote_irr`-stuck** + **IOAPIC EOI/RIRR ordering** monitors for any **line-based level-triggered** heavy-I/O IP.
+- Prefer **MSI/edge** for heavy-I/O IPs where possible.
+
+**Open unknowns for this pattern**
+- `16030803619` (`pc:Ab04` S4 hang) is **open** — WA-regression vs independent issue not fully closed.
+- Errata `13015782827` write-up still empty.
+- Residual brief UFS 100%-usage peak after 7D — expected or not — unanswered.
